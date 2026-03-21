@@ -1,0 +1,107 @@
+:root {
+  /* ====================================================== 
+     GLOBAL COLOR SYSTEM - PREMIUM CORPORATE STYLE
+  ====================================================== */
+  --primary: #1E3A8A;      /* Deep Professional Blue */
+  --primary-dark: #172554;
+  --secondary: #2563EB;    /* Bright Blue Accent */
+  --accent: #F59E0B;       /* Amber/Gold Accent */
+  --accent-light: #FBBF24;
+  --bg: #F8FAFC;           /* Clean Soft Background */
+  --section: #FFFFFF;
+  --text: #111827;
+  --text-light: #6B7280;
+  --border: #E5E7EB;
+  --whatsapp: #25D366;
+  
+  --transition: all 0.3s ease;
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Roboto', sans-serif;
+  --radius-md: 16px;
+  
+  /* Legacy mapping for stability across the rest of the file */
+  --white: #ffffff;
+  --off-white: var(--bg);
+  --grey-light: var(--bg);
+  --grey-mid: var(--border);
+  --grey-text: var(--text-light);
+  --dark: var(--primary);
+  --dark-mid: var(--primary-dark);
+  --dark-light: var(--secondary);
+  --text-main: var(--primary);
+  --text-body: var(--text-light);
+  --green-primary: var(--primary);
+  --green-dark: var(--primary-dark);
+  --green-deeper: var(--primary-dark);
+  --green-light: var(--bg);
+  --green-lighter: var(--bg);
+  --brand-cyan: var(--secondary);
+  --brand-magenta: var(--accent);
+  --shadow-cyan: 0 8px 30px rgba(30, 58, 138, 0.2);
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+/* Navbar overrides to ensure the Blue color works everywhere */
+.navbar {
+  background: var(--primary) !important;
+  color: white !important;
+}
+.navbar.scrolled {
+  background: var(--primary-dark) !important;
+}
+.nav-link {
+  color: white !important;
+}
+.nav-link:hover {
+  color: var(--accent) !important;
+}
+
+/* Hero Overrides */
+.hero-overlay {
+  background: linear-gradient( to right, rgba(30,58,138,0.9), rgba(30,58,138,0.7) ) !important;
+}
+.hero-highlight {
+  color: var(--accent) !important;
+}
+.hero-stat .stat-num {
+  color: var(--accent) !important;
+}
+
+/* Section Tag Overrides */
+.section-tag {
+  color: var(--accent) !important;
+  background: transparent !important;
+  border: none !important;
+}
+.section-title {
+  color: var(--primary) !important;
+}
+
+/* Button Overrides */
+.btn-whatsapp {
+  background: var(--whatsapp) !important;
+}
+.btn-outline {
+  border-color: white !important;
+}
+.btn-outline:hover {
+  background: white !important;
+  color: var(--primary) !important;
+}
+
+/* Footer Overrides */
+.footer {
+  background: var(--primary-dark) !important;
+  color: white !important;
+}
+.footer a:hover {
+  color: var(--accent) !important;
+}

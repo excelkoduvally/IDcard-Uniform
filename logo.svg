@@ -1,0 +1,26 @@
+<svg width="220" height="60" viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@800;900&display=swap');
+      .logo-text { font-family: 'Poppins', sans-serif; font-weight: 800; fill: #ffffff; }
+      .logo-sub { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 8.5px; fill: #ffffff; letter-spacing: 0.1em; text-transform: uppercase; }
+    </style>
+  </defs>
+  
+  <!-- E -->
+  <text x="10" y="38" font-size="34" class="logo-text">E</text>
+  
+  <!-- Stylized X -->
+  <!-- Top Left to Bottom Right (Yellow) -->
+  <path d="M48 18 L64 42" stroke="#FFD700" stroke-width="8" stroke-linecap="round" />
+  <!-- Top Right to Bottom Left (Cyan) -->
+  <path d="M64 18 L44 46" stroke="#00AEEF" stroke-width="8" stroke-linecap="round" />
+  <!-- Magenta accent -->
+  <path d="M48 38 L54 46" stroke="#EB008B" stroke-width="8" stroke-linecap="round" />
+
+  <!-- CEL -->
+  <text x="70" y="38" font-size="34" class="logo-text">CEL</text>
+  
+  <!-- Tagline -->
+  <text x="72" y="50" class="logo-sub">ID CARD &amp; UNIFORMS</text>
+</svg>
