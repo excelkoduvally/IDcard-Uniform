@@ -65,27 +65,27 @@ body {
 
 /* Logo Fix to remain visible */
 .nav-logo-img {
-  height: 95px !important;
+  height: 120px !important;
   max-width: none !important;
   width: auto !important;
-  transform: scale(1.8) translateX(25px);
+  transform: scale(2.8) translateX(45px);
   transform-origin: left center;
 }
 .navbar.scrolled .nav-logo-img {
-  height: 75px !important;
-  transform: scale(1.5) translateX(15px);
+  height: 95px !important;
+  transform: scale(2.3) translateX(30px);
 }
 @media (max-width: 768px) {
   .nav-logo-img {
-    height: 70px !important;
-    transform: scale(1.6) translateX(18px);
+    height: 105px !important;
+    transform: scale(2.8) translateX(35px);
   }
   .navbar.scrolled .nav-logo-img {
-    height: 60px !important;
-    transform: scale(1.4) translateX(12px);
+    height: 90px !important;
+    transform: scale(2.4) translateX(25px);
   }
-  /* Hide the nav-right wrapper on mobile — nav-links is fixed-positioned independently */
-  .nav-right {
+  /* Hide the nav-contact on mobile — nav-links is fixed-positioned independently */
+  .nav-contact {
     display: none !important;
   }
   /* Ensure navbar container never overflows */
