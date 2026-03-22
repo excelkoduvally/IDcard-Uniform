@@ -613,13 +613,63 @@ body {
   .features-card-inner {
     flex-direction: column !important;
     text-align: center !important;
+    margin-top: 30px !important;
   }
   .products-grid {
     grid-template-columns: 1fr !important;
   }
   .hero-content {
     padding: 20px !important;
+    text-align: center !important;
   }
+  .hero {
+    min-height: auto !important;
+    padding: 120px 0 60px !important;
+  }
+  .product-hero {
+    min-height: auto !important;
+    padding: 120px 0 60px !important;
+  }
+  .product-hero-grid {
+    grid-template-columns: 1fr !important;
+    text-align: center !important;
+  }
+  .product-hero-image {
+    justify-content: center !important;
+    margin-top: 30px !important;
+  }
+  .product-hero-actions {
+    justify-content: center !important;
+  }
+  .hero-stats {
+    flex-direction: column !important;
+    gap: 15px !important;
+    padding: 20px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .stat-divider {
+    width: 60% !important;
+    height: 1px !important;
+    margin: 5px auto !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+  }
+}
+
+/* =========================
+   COMPONENT MODIFICATIONS 
+========================= */
+.quick-stats {
+  background: var(--primary) !important;
+  border-bottom: none !important;
+}
+.quick-stat-item i {
+  color: var(--secondary) !important;
+}
+.product-hero-tag {
+  background: var(--primary) !important;
+  color: white !important;
+  border-color: rgba(255,255,255,0.15) !important;
 }
 
 /* =========================
