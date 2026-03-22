@@ -16,10 +16,19 @@
   --shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
 }
 
+/* Root overflow fix - prevents any horizontal scrolling */
+html {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
 body {
   font-family: 'Poppins', sans-serif !important;
   background: var(--bg) !important;
   color: var(--text) !important;
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+  position: relative !important;
 }
 
 /* =========================
@@ -56,24 +65,40 @@ body {
 
 /* Logo Fix to remain visible */
 .nav-logo-img {
-  height: 95px !important;
+  height: 120px !important;
   max-width: none !important;
   width: auto !important;
-  transform: scale(1.8) translateX(25px);
+  transform: scale(2.8) translateX(45px);
   transform-origin: left center;
 }
 .navbar.scrolled .nav-logo-img {
-  height: 75px !important;
-  transform: scale(1.5) translateX(15px);
+  height: 95px !important;
+  transform: scale(2.3) translateX(30px);
 }
 @media (max-width: 768px) {
   .nav-logo-img {
-    height: 70px !important;
-    transform: scale(1.6) translateX(18px);
+    height: 105px !important;
+    transform: scale(2.8) translateX(35px);
   }
   .navbar.scrolled .nav-logo-img {
-    height: 60px !important;
-    transform: scale(1.4) translateX(12px);
+    height: 90px !important;
+    transform: scale(2.4) translateX(25px);
+  }
+  /* Hide the nav-contact on mobile — nav-links is fixed-positioned independently */
+  .nav-contact {
+    display: none !important;
+  }
+  /* Ensure navbar container never overflows */
+  .nav-container {
+    width: 100% !important;
+    padding: 0 16px !important;
+    box-sizing: border-box !important;
+    max-width: 100vw !important;
+  }
+  /* Hamburger must always be visible */
+  .hamburger {
+    display: flex !important;
+    flex-shrink: 0 !important;
   }
 }
 
@@ -613,13 +638,63 @@ body {
   .features-card-inner {
     flex-direction: column !important;
     text-align: center !important;
+    margin-top: 30px !important;
   }
   .products-grid {
     grid-template-columns: 1fr !important;
   }
   .hero-content {
     padding: 20px !important;
+    text-align: center !important;
   }
+  .hero {
+    min-height: auto !important;
+    padding: 120px 0 60px !important;
+  }
+  .product-hero {
+    min-height: auto !important;
+    padding: 120px 0 60px !important;
+  }
+  .product-hero-grid {
+    grid-template-columns: 1fr !important;
+    text-align: center !important;
+  }
+  .product-hero-image {
+    justify-content: center !important;
+    margin-top: 30px !important;
+  }
+  .product-hero-actions {
+    justify-content: center !important;
+  }
+  .hero-stats {
+    flex-direction: column !important;
+    gap: 15px !important;
+    padding: 20px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .stat-divider {
+    width: 60% !important;
+    height: 1px !important;
+    margin: 5px auto !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+  }
+}
+
+/* =========================
+   COMPONENT MODIFICATIONS 
+========================= */
+.quick-stats {
+  background: var(--primary) !important;
+  border-bottom: none !important;
+}
+.quick-stat-item i {
+  color: var(--secondary) !important;
+}
+.product-hero-tag {
+  background: var(--primary) !important;
+  color: white !important;
+  border-color: rgba(255,255,255,0.15) !important;
 }
 
 /* =========================
@@ -790,4 +865,109 @@ body {
 }
 .related-card-link {
   color: var(--secondary) !important;
+}
+
+/* =========================
+   NAV OVERLAY (Mobile Menu)
+========================= */
+.nav-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 998;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+.nav-overlay.active {
+  display: block;
+  opacity: 1;
+}
+
+/* Ensure nav-links slide OVER the overlay */
+@media (max-width: 768px) {
+  .nav-links {
+    z-index: 999 !important;
+  }
+
+  /* Hero section compact on mobile */
+  .hero {
+    min-height: 100vh !important;
+  }
+
+  /* Prevent content horizontal overflow */
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* Quick stats responsive on mobile */
+  .quick-stats-inner {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 12px !important;
+  }
+
+  .quick-stat-item {
+    flex: 0 1 40% !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Product hero mobile stacking */
+  .product-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 30px !important;
+    text-align: center !important;
+  }
+
+  .product-hero-content {
+    order: 1 !important;
+  }
+
+  .product-hero-image {
+    order: 2 !important;
+    justify-content: center !important;
+  }
+
+  .product-hero-actions {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+  }
+
+  .product-hero h1 {
+    font-size: clamp(1.6rem, 5vw, 2.4rem) !important;
+  }
+
+  /* Features section on mobile */
+  .features-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Hero content padding on mobile */
+  .hero-content {
+    padding: 130px 16px 60px !important;
+  }
+
+  /* Variation cards 2 cols on mobile */
+  .variations-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .variations-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quick-stat-item {
+    flex: 0 1 100% !important;
+  }
+
+  .product-hero {
+    padding: 100px 0 50px !important;
+  }
 }
