@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (entries[0].isIntersecting && !countersStarted) {
       countersStarted = true;
       animateCounter(counters[0], 500, '+');
-      animateCounter(counters[1], 10, 'K+');
+      animateCounter(counters[1], 1, ' Million+');
       // Keep star rating static
     }
   }, { threshold: 0.5 });
@@ -227,8 +227,63 @@ document.addEventListener('DOMContentLoaded', function () {
   }, 1000);
 
   // ============================================================
+  // FEATURES CARD — Scroll reveal
+  // ============================================================
+  const featuresCard = document.querySelector('.features-card-inner');
+  if (featuresCard) {
+    featuresCard.style.opacity = '0';
+    featuresCard.style.transform = 'translateY(40px)';
+    featuresCard.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+
+    const featuresObserver = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) {
+        featuresCard.style.opacity = '1';
+        featuresCard.style.transform = 'translateY(0)';
+        featuresObserver.unobserve(entries[0].target);
+      }
+    }, { threshold: 0.2 });
+    featuresObserver.observe(featuresCard);
+  }
+
+  // ============================================================
+  // QUOTE SECTION — Scroll reveal
+  // ============================================================
+  const quoteSection = document.querySelector('.quote-grid');
+  if (quoteSection) {
+    quoteSection.style.opacity = '0';
+    quoteSection.style.transform = 'translateY(30px)';
+    quoteSection.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+
+    const quoteObserver = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) {
+        quoteSection.style.opacity = '1';
+        quoteSection.style.transform = 'translateY(0)';
+        quoteObserver.unobserve(entries[0].target);
+      }
+    }, { threshold: 0.15 });
+    quoteObserver.observe(quoteSection);
+  }
+
+  // ============================================================
   // Console branding
   // ============================================================
-  console.log('%c Excel ID Card & Uniforms', 'font-size: 18px; font-weight: bold; color: #25D366;');
-  console.log('%c School ID Card Manufacturer — Calicut, Kerala', 'font-size: 12px; color: #128C7E;');
+  console.log('%c Excel ID Card & Uniforms', 'font-size: 18px; font-weight: bold; color: #16a34a;');
+  console.log('%c School ID Card Manufacturer — Calicut, Kerala', 'font-size: 12px; color: #15803d;');
 });
+
+// ============================================================
+// QUOTE FORM — Submit to WhatsApp (global function)
+// ============================================================
+function submitQuote() {
+  const schoolName = document.getElementById('school-name').value.trim();
+  const product = document.getElementById('product-select').value;
+
+  let message = 'Hello, I need a quote';
+  if (schoolName) message += ' for ' + schoolName;
+  if (product) message += ' — Product: ' + product;
+  message += '. Please share pricing details.';
+
+  const encodedMessage = encodeURIComponent(message);
+  window.open('https://wa.me/919995168026?text=' + encodedMessage, '_blank');
+}
+
