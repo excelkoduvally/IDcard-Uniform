@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create School Account | Excel ID Cards</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="style-app.css" />
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="excel_logo_transparent.png" alt="Excel Logo">
+          <span>Excel <b>Admin</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="create-user.html" class="active"><i class="fas fa-user-plus"></i> Create User</a></li>
+        <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
+        <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline btn-full" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Create User Profile</div>
+        <div class="user-badge"><i class="fas fa-shield-alt"></i> Admin Panel</div>
+      </div>
+
+      <div class="content-area">
+        <h1 class="page-title">Generate <span>School Account</span></h1>
+        
+        <div class="card" style="max-width: 600px">
+          <div id="alert-box" class="alert"></div>
+
+          <div class="form-group">
+            <label>School Full Name</label>
+            <input type="text" id="sch-name" class="form-control" placeholder="e.g. MES Public School" />
+          </div>
+
+          <div class="form-group">
+            <label>Login Email Address</label>
+            <input type="email" id="sch-email" class="form-control" placeholder="mes@school.com" />
+          </div>
+
+          <div class="form-group">
+            <label>Login Password</label>
+            <input type="password" id="sch-pass" class="form-control" placeholder="Minimum 6 characters" />
+          </div>
+
+          <div class="form-group">
+            <label>Contact Phone</label>
+            <input type="text" id="sch-phone" class="form-control" placeholder="Optional" />
+          </div>
+
+          <div class="form-group">
+            <label>Address / Location</label>
+            <input type="text" id="sch-address" class="form-control" placeholder="Optional" />
+          </div>
+
+          <button id="create-btn" class="btn btn-primary btn-full" onclick="createSchool()">
+            <span id="btn-text"><i class="fas fa-save"></i> Create Account</span>
+            <div class="spinner" id="spinner"></div>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+  <script type="module">
+    import { guardPage, supabase } from './auth.js';
+    guardPage('admin');
+
+    window.createSchool = async function() {
+      const name = document.getElementById("sch-name").value.trim();
+      const email = document.getElementById("sch-email").value.trim();
+      const pass = document.getElementById("sch-pass").value;
+      const phone = document.getElementById("sch-phone").value.trim();
+      const addr = document.getElementById("sch-address").value.trim();
+
+      const elAlert = document.getElementById("alert-box");
+      const showAlert = (msg, type="error") => { elAlert.className=`alert alert-${type} show`; elAlert.textContent = msg; };
+
+      if (!name || !email || !pass) { showAlert("Name, Email and Password are required."); return; }
+
+      document.getElementById("create-btn").disabled = true;
+      document.getElementById("spinner").classList.add("show");
+      document.getElementById("btn-text").style.display = "none";
+
+      try {
+        // Create user in Supabase auth
+        const { data: authData, error: authErr } = await supabase.auth.signUp({
+          email: email,
+          password: pass
+        });
+
+        if (authErr) throw authErr;
+
+        // Insert metadata into completely separate 'schools' table
+        const { error: dbErr } = await supabase
+          .from('schools')
+          .insert([
+            { id: authData.user.id, school_name: name, email, phone, address, status: 'active' }
+          ]);
+        
+        if (dbErr) throw dbErr;
+
+        showAlert("School account successfully created!", "success");
+        setTimeout(() => window.location.href = "schools.html", 1500);
+
+      } catch (err) {
+        showAlert(err.message);
+        document.getElementById("create-btn").disabled = false;
+        document.getElementById("spinner").classList.remove("show");
+        document.getElementById("btn-text").style.display = "flex";
+      }
+    };
+  </script>
+</body>
+</html>

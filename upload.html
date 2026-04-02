@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Portal | Upload Data | Excel ID</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="style-app.css" />
+  <style>
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
+    @media (max-width: 900px) { .upload-grid { grid-template-columns: 1fr; } }
+    .section-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); margin-bottom: 1.25rem; }
+    .record-item { display: grid; grid-template-columns: 56px 1fr; gap: 1rem; align-items: center; padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 0.5rem; background: rgba(15,23,42,0.5); }
+    .progress-bar-wrap { height: 6px; background: var(--dark3); border-radius: 100px; margin: 0.5rem 0; overflow: hidden; display: none; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.2s; }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="excel_logo_transparent.png" alt="Excel Logo">
+          <span>School <b>Portal</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="upload.html" class="active"><i class="fas fa-cloud-upload-alt"></i> Upload Student</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline btn-full" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Data Collection</div>
+        <div class="user-badge"><i class="fas fa-school"></i> <span class="user-name-display">Loading...</span></div>
+      </div>
+
+      <div class="content-area">
+        <h1 class="page-title">Submit <span>Student Details</span></h1>
+        
+        <div id="alert-box" class="alert"></div>
+
+        <div class="upload-grid">
+          <div class="card">
+            <div class="section-label"><i class="fas fa-user-plus"></i> Add New Record</div>
+
+            <div class="form-group">
+              <label>Student Name</label>
+              <input type="text" id="s-name" class="form-control" placeholder="Full Name" />
+            </div>
+
+            <div style="display:flex; gap:1rem">
+              <div class="form-group" style="flex:1">
+                <label>Class</label>
+                <input type="text" id="s-class" class="form-control" placeholder="e.g. 10" />
+              </div>
+              <div class="form-group" style="flex:1">
+                <label>Division</label>
+                <input type="text" id="s-div" class="form-control" placeholder="e.g. A" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Admission No. / ID No.</label>
+              <input type="text" id="s-admin" class="form-control" placeholder="Enter Admsn number" />
+            </div>
+
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" id="s-dob" class="form-control" />
+            </div>
+
+            <div class="form-group">
+              <label>Parent Contact Phone</label>
+              <input type="tel" id="s-phone" class="form-control" />
+            </div>
+
+            <div class="form-group">
+              <label>Student Photo</label>
+              <div class="photo-upload-zone" id="drop-zone">
+                <input type="file" id="s-photo" accept="image/*" />
+                <i class="fas fa-camera"></i>
+                <p>Click to upload portrait photo</p>
+              </div>
+              <img id="photo-preview" class="photo-preview" style="display:none" alt="Preview"/>
+            </div>
+
+            <div class="progress-bar-wrap" id="progress-wrap">
+              <div class="progress-bar-fill" id="progress-fill"></div>
+            </div>
+
+            <button id="upload-btn" class="btn btn-primary btn-full" onclick="submitData()">
+              <span id="btn-text"><i class="fas fa-save"></i> Upload Student</span>
+              <div class="spinner" id="spinner"></div>
+            </button>
+          </div>
+
+          <div>
+            <div class="card" style="padding: 1.5rem">
+              <div class="section-label" style="margin-bottom:1rem"><i class="fas fa-inbox"></i> Uploaded by your school</div>
+              <div id="recent-list">
+                <div class="empty-state"><p>No uploads yet.</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+  <script type="module">
+    import { guardPage, supabase } from './auth.js';
+    import { handlePreview, resetForm, uploadToCloudinary } from './upload.js';
+
+    let currentUser = null;
+    guardPage('school').then(u => currentUser = u);
+
+    let photoFile = null;
+    document.getElementById("s-photo").addEventListener("change", (e) => {
+      const res = handlePreview(e);
+      if(res && res.error) {
+        const al = document.getElementById("alert-box");
+        al.className = "alert alert-error show";
+        al.textContent = res.error;
+      } else {
+        photoFile = res;
+      }
+    });
+
+    window.submitData = async function() {
+      if(!currentUser) return;
+      
+      const name = document.getElementById("s-name").value.trim();
+      const cls = document.getElementById("s-class").value.trim() + " " + document.getElementById("s-div").value.trim();
+      const adm = document.getElementById("s-admin").value.trim();
+      const phone = document.getElementById("s-phone").value.trim();
+      const dob = document.getElementById("s-dob").value.trim();
+
+      const al = document.getElementById("alert-box");
+
+      if(!name || !cls.trim() || !adm || !photoFile) {
+        al.className = "alert alert-error show";
+        al.textContent = "Name, Class, Admission No, and Photo are mandatory.";
+        return;
+      }
+
+      document.getElementById("upload-btn").disabled = true;
+      document.getElementById("spinner").classList.add("show");
+      document.getElementById("btn-text").style.display = "none";
+      
+      const pw = document.getElementById("progress-wrap");
+      const pf = document.getElementById("progress-fill");
+      pw.style.display = "block";
+
+      try {
+        // Upload photo logic directly to Cloudinary
+        const photoURL = await uploadToCloudinary(photoFile, (percent) => {
+          pf.style.width = percent + "%";
+        });
+
+        // Insert Doc into Supabase Postgres
+        const { error: dbErr } = await supabase
+          .from('students')
+          .insert([
+            {
+              school_id: currentUser.id,
+              name, class: cls, admission_no: adm, parent_phone: phone, dob,
+              photo_url: photoURL
+            }
+          ]);
+          
+        if(dbErr) throw dbErr;
+
+        al.className = "alert alert-success show";
+        al.textContent = "Successfully uploaded!";
+        setTimeout(() => al.className="alert", 3000);
+        
+        resetForm();
+        photoFile = null;
+        pf.style.width = "0%";
+        loadRecent();
+      } catch (err) {
+        al.className = "alert alert-error show";
+        al.textContent = "Error: " + err.message;
+      } finally {
+        document.getElementById("upload-btn").disabled = false;
+        document.getElementById("spinner").classList.remove("show");
+        document.getElementById("btn-text").style.display = "flex";
+        pw.style.display = "none";
+      }
+    };
+
+    async function loadRecent() {
+      if(!currentUser) return;
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('school_id', currentUser.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+          
+        const list = document.getElementById("recent-list");
+        if(error || !data || data.length === 0) {
+           list.innerHTML = `<div class="empty-state"><p>No uploads yet.</p></div>`;
+           return;
+        }
+        list.innerHTML = data.map(d => {
+          return `<div class="record-item">
+            <img src="${d.photo_url}" class="td-photo">
+            <div>
+              <strong style="display:block">${d.name}</strong>
+              <span style="font-size:0.8rem;color:var(--text-muted)">${d.class} | Adm: ${d.admission_no}</span>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${d.id}')"><i class="fas fa-trash"></i></button>
+          </div>`;
+        }).join('');
+      } catch(e) {}
+    }
+
+    window.deleteStudent = async function(id) {
+      if (!confirm("Are you sure you want to delete this student record?")) return;
+      try {
+        await supabase.from('students').delete().eq('id', id);
+        loadRecent();
+      } catch (err) {
+        alert("Delete failed: " + err.message);
+      }
+    };
+
+    setTimeout(() => { loadRecent(); }, 1000);
+  </script>
+</body>
+</html>

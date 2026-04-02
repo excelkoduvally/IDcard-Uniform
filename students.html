@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Students | Excel ID Cards</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="style-app.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    .school-filter-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .pill { padding: 0.4rem 1rem; border-radius: 100px; font-size: 0.8rem; font-weight: 600; border: 1.5px solid var(--border); color: var(--text-muted); cursor: pointer; transition: all 0.2s; background: transparent; }
+    .pill.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .pill:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+    .table-section { background: var(--card-bg); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .table-section-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+    .search-input { position: relative; }
+    .search-input i { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; pointer-events: none; }
+    .search-input input { padding-left: 2.2rem; width: 220px; }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="excel_logo_transparent.png" alt="Excel Logo">
+          <span>Excel <b>Admin</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create User</a></li>
+        <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
+        <li><a href="students.html" class="active"><i class="fas fa-users"></i> Students</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline btn-full" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Student Database</div>
+        <div class="user-badge"><i class="fas fa-shield-alt"></i> Admin Panel</div>
+      </div>
+
+      <div class="content-area">
+        <h1 class="page-title">Uploaded <span>Students</span></h1>
+        
+        <div class="filter-bar">
+          <div class="form-group">
+            <label>Filter by School</label>
+            <select id="school-filter" class="form-control" onchange="applyFilters()">
+              <option value="">All Schools</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter by Class</label>
+            <select id="class-filter" class="form-control" onchange="applyFilters()">
+              <option value="">All Classes</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Search Name</label>
+            <div class="search-input">
+              <i class="fas fa-search"></i>
+              <input type="text" id="search-input" class="form-control" placeholder="Type name..." oninput="applyFilters()" />
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-success" id="btn-export"><i class="fas fa-file-excel"></i> Download Excel</button>
+            <button class="btn btn-outline" onclick="loadStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
+          </div>
+        </div>
+
+        <div class="school-filter-pills" id="school-pills"></div>
+
+        <div class="table-section">
+          <div class="table-section-header">
+            <h3 id="table-title">All Students</h3>
+            <span id="record-count" class="badge badge-blue">Loading...</span>
+          </div>
+          <div class="table-wrap">
+            <table id="students-table">
+              <thead>
+                <tr>
+                  <th>Photo</th>
+                  <th>Name</th>
+                  <th>Class</th>
+                  <th>School</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="table-body">
+                <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading database...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+  <script type="module">
+    import { guardPage, supabase } from './auth.js';
+    import { exportExcel } from './excel.js';
+
+    guardPage('admin');
+
+    let allStudents = [];
+    let filteredStudents = [];
+    let classesList = new Set();
+
+    window.loadStudents = async function() {
+      const tbody = document.getElementById("table-body");
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading records...</p></div></td></tr>`;
+      
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*, schools(email, school_name)')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        allStudents = data || [];
+
+        const schoolsSet = new Set();
+        classesList = new Set();
+        allStudents.forEach(s => {
+          s.school_email = s.schools?.email || 'Unknown';
+          s.school_name = s.schools?.school_name || 'Unknown';
+          if (s.school_email) schoolsSet.add(s.school_email);
+          if (s.class) classesList.add(s.class);
+        });
+
+        // Populate Schools Dropdown
+        const selObj = document.getElementById("school-filter");
+        selObj.innerHTML = '<option value="">All Schools</option>';
+        schoolsSet.forEach(em => {
+          selObj.appendChild(new Option(em, em));
+        });
+
+        // Pills UI
+        const pillsEl = document.getElementById("school-pills");
+        pillsEl.innerHTML = '';
+        const btnAll = document.createElement("button");
+        btnAll.className = "pill active"; btnAll.textContent = "All";
+        btnAll.onclick = () => { selObj.value = ""; applyFilters(); };
+        pillsEl.appendChild(btnAll);
+
+        schoolsSet.forEach(em => {
+          const btn = document.createElement("button");
+          btn.className = "pill"; btn.textContent = em.split('@')[0].toUpperCase();
+          btn.onclick = () => { selObj.value = em; applyFilters(); };
+          pillsEl.appendChild(btn);
+        });
+
+        // Populate Classes Dropdown
+        const clsObj = document.getElementById("class-filter");
+        clsObj.innerHTML = '<option value="">All Classes</option>';
+        [...classesList].sort().forEach(c => clsObj.appendChild(new Option(c, c)));
+
+        applyFilters();
+
+      } catch(err) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
+      }
+    };
+
+    window.applyFilters = function() {
+      const sch = document.getElementById("school-filter").value;
+      const cls = document.getElementById("class-filter").value;
+      const search = document.getElementById("search-input").value.toLowerCase();
+
+      filteredStudents = allStudents.filter(s => {
+        return (!sch || s.school_email === sch) &&
+               (!cls || s.class === cls) &&
+               (!search || (s.name || "").toLowerCase().includes(search));
+      });
+
+      document.querySelectorAll(".pill").forEach(p => {
+        p.classList.toggle("active", (!sch && p.textContent==="All") || (sch && p.textContent===sch.split("@")[0].toUpperCase()));
+      });
+
+      document.getElementById("record-count").textContent = `${filteredStudents.length} Records`;
+      
+      const typeStr = sch ? sch.split('@')[0].toUpperCase() : (cls ? `Class_${cls}` : "AllData");
+      document.getElementById("btn-export").onclick = () => exportExcel(filteredStudents, typeStr);
+
+      renderTable();
+    };
+
+    function renderTable() {
+      const tbody = document.getElementById("table-body");
+      if (filteredStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>No records match filters.</p></div></td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filteredStudents.map(s => {
+        const photo = s.photo_url ? `<img src="${s.photo_url}" class="td-photo">` : `<div class="td-photo-placeholder"><i class="fas fa-user"></i></div>`;
+        const dt = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
+        return `<tr>
+          <td>${photo}</td>
+          <td><strong>${s.name}</strong></td>
+          <td><span class="badge badge-blue">${s.class}</span></td>
+          <td style="color:var(--text-muted)">${(s.school_email||"").split("@")[0].toUpperCase()}</td>
+          <td>${dt}</td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    window.deleteStudent = async function(id) {
+      if(!confirm("Are you sure you want to delete this specific student record?")) return;
+      try {
+        await supabase.from('students').delete().eq('id', id);
+        loadStudents(); 
+      } catch(err) {
+        alert("Failed to delete: " + err.message);
+      }
+    };
+
+    loadStudents();
+  </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | Excel ID Cards</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="style-app.css" />
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="excel_logo_transparent.png" alt="Excel Logo">
+          <span>Excel <b>Admin</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html" class="active"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create User</a></li>
+        <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
+        <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      </ul>
+      <div class="sidebar-footer" style="margin-top:auto">
+        <button class="btn btn-outline btn-full" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Overview</div>
+        <div class="user-badge"><i class="fas fa-shield-alt"></i> Admin Panel</div>
+      </div>
+
+      <div class="content-area">
+        <h1 class="page-title">Dashboard <span>Summary</span></h1>
+        <p class="page-subtitle">Real-time statistics of uploaded data across all schools.</p>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card">
+            <span class="stat-num" id="stat-schools"><i class="fas fa-spinner fa-spin"></i></span>
+            <div class="stat-label">Total Schools</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="stat-students"><i class="fas fa-spinner fa-spin"></i></span>
+            <div class="stat-label">Total Students</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="stat-today"><i class="fas fa-spinner fa-spin"></i></span>
+            <div class="stat-label">Today's Uploads</div>
+          </div>
+          <div class="stat-card" style="border-color: rgba(14,165,233,0.4)">
+            <span class="stat-num" style="color:#fff">Design Queue</span>
+            <div class="stat-label">Ready to Download</div>
+            <a href="students.html" class="btn btn-primary btn-sm" style="margin-top:10px">Go to Data</a>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+  <script type="module" src="admin.js"></script>
+  <script type="module">
+    import { guardPage } from './auth.js';
+    guardPage('admin');
+  </script>
+</body>
+</html>

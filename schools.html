@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Schools | Excel ID Cards</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="style-app.css" />
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="excel_logo_transparent.png" alt="Excel Logo">
+          <span>Excel <b>Admin</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create User</a></li>
+        <li><a href="schools.html" class="active"><i class="fas fa-school"></i> Schools</a></li>
+        <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline btn-full" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Schools List</div>
+        <div class="user-badge"><i class="fas fa-shield-alt"></i> Admin Panel</div>
+      </div>
+
+      <div class="content-area">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem">
+          <div>
+            <h1 class="page-title">Registered <span>Schools</span></h1>
+            <p class="page-subtitle">Manage client schools attached to Supabase.</p>
+          </div>
+          <a href="create-user.html" class="btn btn-primary"><i class="fas fa-plus"></i> Add New School</a>
+        </div>
+
+        <div class="card" style="padding: 1.5rem">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>School Name</th>
+                  <th>Email / Login</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                  <th>Created</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="schools-tbody">
+                <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading schools…</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+  <script type="module">
+    import { guardPage, supabase } from './auth.js';
+    guardPage('admin');
+
+    async function loadSchools() {
+      const tbody = document.getElementById("schools-tbody");
+      try {
+        const { data, error } = await supabase
+          .from('schools')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>No schools registered yet.</p></div></td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = data.map(d => {
+          const date = d.created_at ? new Date(d.created_at).toLocaleDateString() : 'N/A';
+          return `<tr>
+            <td><strong>${d.school_name}</strong></td>
+            <td><span class="badge badge-blue">${d.email}</span></td>
+            <td>${d.phone || 'N/A'}</td>
+            <td>${d.address || 'N/A'}</td>
+            <td>${date}</td>
+            <td><span class="badge badge-green">${d.status || 'Active'}</span></td>
+          </tr>`;
+        }).join("");
+      } catch(err) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
+      }
+    }
+    loadSchools();
+  </script>
+</body>
+</html>

@@ -971,3 +971,54 @@ body {
     padding: 100px 0 50px !important;
   }
 }
+
+/* =========================
+   LOGIN BUTTON OPTIMIZATIONS
+========================= */
+.nav-login-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  padding: 10px 22px !important;
+  border-radius: 40px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-left: 12px !important;
+  text-decoration: none !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.nav-login-btn:hover {
+  background: white !important;
+  color: var(--primary) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.navbar.scrolled .nav-login-btn {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.navbar.scrolled .nav-login-btn:hover {
+  background: white !important;
+  color: var(--primary) !important;
+}
+
+/* Hide the regular nav link on desktop so we only see the right-most button */
+@media (min-width: 769px) {
+  .mobile-login-item {
+    display: none !important;
+  }
+}
+/* Ensure the button hides on mobile since nav-contact is hidden */
+@media (max-width: 768px) {
+  .mobile-login-item {
+    display: block !important;
+  }
+}
