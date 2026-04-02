@@ -3,7 +3,7 @@
 //  Get these from: https://supabase.com → Your Project → Settings → API
 // ============================================================
 export const SUPABASE_URL  = "https://joyglzzquwiamqhpuibv.supabase.co"; 
-export const SUPABASE_ANON = "sb_publishable_LCksilYJUwJu2xRDcGky0Q_x0sJW26Y9D0o_LzWkP60="; 
+export const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpveWdsenpxdXdpYW1xaHB1aWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjI2NTIsImV4cCI6MjA5MDY5ODY1Mn0.j2hesVEAp0KApZEShdrR_9awDjXD4ZM_q7_Z-pWiFmE"; 
 
 // ============================================================
 //  CLOUDINARY CONFIGURATION (for photo uploads)
