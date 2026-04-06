@@ -1,9 +1,8 @@
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "./supabase-config.js";
 
 export function resetForm() {
-  ["s-name","s-class","s-div","s-admin","s-dob","s-phone"].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.value = "";
+  document.querySelectorAll('.dynamic-input').forEach(el => {
+    el.value = "";
   });
   const prev = document.getElementById("photo-preview");
   if(prev) { prev.src = ""; prev.style.display = "none"; }

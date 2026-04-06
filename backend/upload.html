@@ -50,77 +50,9 @@
 
         <div class="upload-grid">
           <div class="card">
-            <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem">
-              <i class="fas fa-info-circle"></i> Student Information
-            </div>
             
-            <div class="form-group">
-              <label>Name</label>
-              <input type="text" id="s-name" class="form-control" placeholder="Full Name" />
-            </div>
-
-            <div class="form-group">
-              <label>Admission Number</label>
-              <input type="text" id="s-admin" class="form-control" placeholder="Enter Admsn number" />
-            </div>
-
-            <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem; margin-top:2.5rem;">
-              <i class="fas fa-chalkboard"></i> Class Details
-            </div>
-
-            <div style="display:flex; gap:1rem">
-              <div class="form-group" style="flex:1">
-                <label>Class</label>
-                <select id="s-class" class="form-control">
-                  <option value="">Select Class</option>
-                  <option value="LKG">LKG</option>
-                  <option value="UKG">UKG</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                  <option value="8">8</option>
-                  <option value="9">9</option>
-                  <option value="10">10</option>
-                  <option value="11">11</option>
-                  <option value="12">12</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex:1">
-                <label>Division</label>
-                <select id="s-div" class="form-control">
-                  <option value="">Select Division</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
-                  <option value="E">E</option>
-                  <option value="F">F</option>
-                  <option value="G">G</option>
-                  <option value="H">H</option>
-                  <option value="I">I</option>
-                  <option value="J">J</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem; margin-top:2.5rem;">
-              <i class="fas fa-user"></i> Personal
-            </div>
-
-            <div style="display:flex; gap:1rem">
-              <div class="form-group" style="flex:1">
-                <label>Date of Birth</label>
-                <input type="date" id="s-dob" class="form-control" />
-              </div>
-
-              <div class="form-group" style="flex:1">
-                <label>Parent Phone</label>
-                <input type="tel" id="s-phone" class="form-control" placeholder="Mobile Number" />
-              </div>
+            <div id="dynamic-form-wrap">
+              <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading template...</p></div>
             </div>
 
             <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem; margin-top:2.5rem;">
@@ -182,7 +114,53 @@
     import { handlePreview, resetForm, uploadToCloudinary } from "../assets/js/upload.js";
 
     let currentUser = null;
-    guardPage('school').then(u => currentUser = u);
+    let schoolFields = [];
+
+    guardPage('school').then(u => {
+      currentUser = u;
+      loadTemplate();
+    });
+
+    async function loadTemplate() {
+      try {
+        const { data: fields, error } = await supabase
+          .from("templates")
+          .select("*")
+          .eq("school_id", currentUser.id)
+          .order("order_no");
+          
+        if (error) throw error;
+        schoolFields = fields || [];
+
+        const wrap = document.getElementById("dynamic-form-wrap");
+        if (schoolFields.length === 0) {
+          wrap.innerHTML = '<div class="empty-state"><p>No template assigned by Admin yet.</p></div>';
+          return;
+        }
+
+        wrap.innerHTML = '<div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem"><i class="fas fa-list-alt"></i> School Requirements</div>';
+        
+        schoolFields.forEach(f => {
+          const div = document.createElement("div");
+          div.className = "form-group";
+          div.innerHTML = `<label>${f.field_name} ${f.required ? '<span style="color:#ef4444">*</span>' : ''}</label>`;
+          
+          const input = document.createElement("input");
+          input.type = f.field_type || "text";
+          input.name = f.field_name;
+          input.className = "form-control dynamic-input";
+          input.placeholder = `Enter ${f.field_name}`;
+          if(f.required) input.required = true;
+          
+          div.appendChild(input);
+          wrap.appendChild(div);
+        });
+
+      } catch (err) {
+        console.error("Failed to load template", err);
+        document.getElementById("dynamic-form-wrap").innerHTML = '<div class="empty-state"><p>Failed to retrieve template.</p></div>';
+      }
+    }
 
     let photoFile = null;
     document.getElementById("s-photo").addEventListener("change", (e) => {
@@ -197,19 +175,24 @@
     });
 
     window.submitData = async function() {
-      if(!currentUser) return;
+      if(!currentUser || schoolFields.length === 0) return;
       
-      const name = document.getElementById("s-name").value.trim();
-      const cls = document.getElementById("s-class").value.trim() + " " + document.getElementById("s-div").value.trim();
-      const adm = document.getElementById("s-admin").value.trim();
-      const phone = document.getElementById("s-phone").value.trim();
-      const dob = document.getElementById("s-dob").value.trim();
-
       const al = document.getElementById("alert-box");
+      const formData = {};
 
-      if(!name || !cls.trim() || !adm || !photoFile) {
+      for (const f of schoolFields) {
+        const input = document.querySelector(`[name="${f.field_name}"]`);
+        if (f.required && (!input || !input.value.trim())) {
+           al.className = "alert alert-error show";
+           al.textContent = `Field "${f.field_name}" is mandatory.`;
+           return;
+        }
+        formData[f.field_name] = input ? input.value.trim() : "";
+      }
+
+      if(!photoFile) {
         al.className = "alert alert-error show";
-        al.textContent = "Name, Class, Admission No, and Photo are mandatory.";
+        al.textContent = "Photo upload is mandatory.";
         return;
       }
 
@@ -227,13 +210,13 @@
           pf.style.width = percent + "%";
         });
 
-        // Insert Doc into Supabase Postgres
+        // Insert dynamically matched Doc into Supabase Postgres
         const { error: dbErr } = await supabase
           .from('students')
           .insert([
             {
               school_id: currentUser.id,
-              name, class: cls, admission_no: adm, parent_phone: phone, dob,
+              student_data: formData,
               photo_url: photoURL
             }
           ]);

@@ -4,6 +4,40 @@ guardPage('admin');
 
 let fields = [];
 
+async function initializeSchools() {
+  try {
+    const { data: schools, error } = await supabase.from('schools').select('id, school_name');
+    if (error) throw error;
+    
+    const sel = document.getElementById("template-school-select");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Choose a School --</option>';
+    
+    (schools || []).forEach(s => {
+      sel.appendChild(new Option(s.school_name || s.id, s.id));
+    });
+  } catch(e) {
+    console.error("Failed loading schools", e);
+  }
+}
+initializeSchools();
+
+window.loadExistingTemplate = async function() {
+  const schoolId = document.getElementById("template-school-select").value;
+  if (!schoolId) {
+    fields = [];
+    render();
+    return;
+  }
+  try {
+    const { data } = await supabase.from("templates").select("*").eq("school_id", schoolId).order("order_no");
+    fields = data || [];
+    render();
+  } catch(e) {
+    console.error("Error loading template", e);
+  }
+}
+
 window.addField = function () {
   const name = document.getElementById("field-name").value.trim();
   const type = document.getElementById("field-type").value;
@@ -47,25 +81,31 @@ window.saveTemplate = async function () {
     return;
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const schoolId = document.getElementById("template-school-select").value;
+  if (!schoolId) {
+    alert("Please select a target school to assign this template to.");
+    return;
+  }
 
-  // Show loading state if present
   const btn = document.querySelector(".btn-primary.btn-full");
   if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
   try {
-    for (let i = 0; i < fields.length; i++) {
-      await supabase
-        .from("templates")
-        .insert({
-          school_id: user.id,
-          field_name: fields[i].field_name,
-          field_type: fields[i].field_type,
-          required: fields[i].required,
-          order_no: i
-        });
-    }
-    alert("Template saved successfully!");
+    // Delete existing template fields first so we cleanly rebuild it
+    await supabase.from("templates").delete().eq("school_id", schoolId);
+
+    const insertions = fields.map((f, i) => ({
+      school_id: schoolId,
+      field_name: f.field_name,
+      field_type: f.field_type,
+      required: f.required,
+      order_no: i
+    }));
+
+    const { error } = await supabase.from("templates").insert(insertions);
+    if(error) throw error;
+
+    alert("Template saved successfully for this school!");
   } catch (err) {
     alert("Error saving template: " + err.message);
   } finally {
