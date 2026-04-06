@@ -48,12 +48,13 @@ export async function uploadToCloudinary(file, progressCallback) {
       }
     };
 
-    xhr.onload = function() {
+    xhr.onload = function () {
+      const res = JSON.parse(xhr.responseText);
+
       if (xhr.status >= 200 && xhr.status < 300) {
-        const response = JSON.parse(xhr.responseText);
-        resolve(response.secure_url);
+        resolve(res.secure_url);
       } else {
-        reject(new Error("Cloudinary upload failed: " + xhr.responseText));
+        reject(new Error(res.error?.message || "Cloudinary upload failed"));
       }
     };
 
