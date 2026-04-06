@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    SHARED APP STYLES â€” Excel ID Card Management System
    ============================================================ */
 
@@ -331,5 +331,21 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
   .sidebar-footer { display: none; } /* Hide logout in mobile footer, put in menu */
   .topbar { padding: 0 1rem; }
   .content-area { padding: 1rem; }
+}
+
+/* â”€â”€ Storage Bar â”€â”€ */
+.storage-bar{
+  width:100%;
+  height:20px;
+  background:var(--dark3);
+  border-radius:10px;
+  overflow:hidden;
+  margin-bottom:0.5rem;
+}
+#storage-fill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#22c55e,#ef4444);
+  transition: width 0.5s ease-out;
 }
 

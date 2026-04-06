@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -54,13 +54,34 @@
             <div class="stat-label">Total Students</div>
           </div>
           <div class="stat-card">
-            <span class="stat-num" id="stat-today"><i class="fas fa-spinner fa-spin"></i></span>
-            <div class="stat-label">Today's Uploads</div>
+            <span class="stat-num" id="stat-photos"><i class="fas fa-spinner fa-spin"></i></span>
+            <div class="stat-label">Total Photos</div>
           </div>
-          <div class="stat-card" style="border-color: rgba(14,165,233,0.4)">
-            <span class="stat-num" style="color:#fff">Design Queue</span>
-            <div class="stat-label">Ready to Download</div>
-            <a href="students.html" class="btn btn-primary btn-sm" style="margin-top:10px">Go to Data</a>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+          <!-- Storage Usage -->
+          <div class="card">
+            <h3 style="margin-bottom:1rem"><i class="fas fa-database" style="color:var(--primary)"></i> Storage Usage</h3>
+            <div class="storage-bar">
+              <div id="storage-fill"></div>
+            </div>
+            <p id="storage-text" style="font-size:0.9rem; color:var(--text-muted); font-weight:600">Calculating...</p>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem">Calculated based on database JSON allocation limit (500MB).</p>
+          </div>
+
+          <!-- Data Actions -->
+          <div class="card">
+            <h3 style="margin-bottom:1rem"><i class="fas fa-tools" style="color:var(--warning)"></i> Data Management</h3>
+            
+            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+              <select id="cleanup-school-select" class="form-control" style="flex:2">
+                <option value="">Select School...</option>
+              </select>
+              <button class="btn btn-danger" style="flex:1" onclick="clearSchoolData()"><i class="fas fa-trash"></i> Clear</button>
+            </div>
+
+            <button class="btn btn-outline btn-full" onclick="deleteOldData(30)"><i class="fas fa-calendar-times"></i> Delete 30+ Days Old Data</button>
           </div>
         </div>
 
