@@ -36,6 +36,7 @@ export async function uploadToCloudinary(file, progressCallback) {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  fd.append("resource_type", "image");
 
   // Cloudinary does not have simple fetch progress, so we use XMLHttpRequest
   return new Promise((resolve, reject) => {
