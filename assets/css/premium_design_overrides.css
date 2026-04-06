@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    EXCEL ID CARDS & UNIFORMS â€” Premium Design Overrides
    Theme: Global Design System (Navy, Teal, White)
 ============================================================ */
@@ -65,24 +65,27 @@ body {
 
 /* Logo Fix to remain visible */
 .nav-logo-img {
-  height: 145px !important;
+  height: 80px !important;
   max-width: none !important;
   width: auto !important;
-  transform: scale(3.3) translateX(0);
+  transform: scale(2.5) translateX(10px);
   transform-origin: left center;
+  margin-right: 130px !important;
 }
 .navbar.scrolled .nav-logo-img {
-  height: 115px !important;
-  transform: scale(2.8) translateX(0);
+  height: 65px !important;
+  transform: scale(2.2) translateX(10px);
+  margin-right: 90px !important;
 }
 @media (max-width: 768px) {
   .nav-logo-img {
-    height: 125px !important;
-    transform: scale(3.3) translateX(0);
+    height: 70px !important;
+    transform: scale(2.2) translateX(10px);
+    margin-right: auto !important;
   }
   .navbar.scrolled .nav-logo-img {
-    height: 105px !important;
-    transform: scale(2.9) translateX(0);
+    height: 60px !important;
+    transform: scale(2.0) translateX(10px);
   }
   /* Hide the nav-contact on mobile â€” nav-links is fixed-positioned independently */
   .nav-contact {
