@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="../assets/css/style-app.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     .school-filter-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
     .pill { padding: 0.4rem 1rem; border-radius: 100px; font-size: 0.8rem; font-weight: 600; border: 1.5px solid var(--border); color: var(--text-muted); cursor: pointer; transition: all 0.2s; background: transparent; }
@@ -74,6 +75,7 @@
           </div>
           <div class="actions">
             <button class="btn btn-success" id="btn-export"><i class="fas fa-file-excel"></i> Download Excel</button>
+            <button class="btn btn-info" id="btn-export-photos" onclick="downloadPhotos()"><i class="fas fa-file-archive"></i> Download Photos</button>
             <button class="btn btn-outline" onclick="loadStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
           </div>
         </div>
@@ -233,6 +235,52 @@
         loadStudents(); 
       } catch(err) {
         alert("Failed to delete: " + err.message);
+      }
+    };
+
+    window.downloadPhotos = async function() {
+      if(filteredStudents.length === 0) {
+        alert("No students to download photos for.");
+        return;
+      }
+      
+      const btn = document.getElementById("btn-export-photos");
+      const btnText = btn.innerHTML;
+      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Zipping...`;
+      btn.disabled = true;
+
+      try {
+        const zip = new window.JSZip();
+
+        for(const student of filteredStudents) {
+          if(!student.photo_url) continue;
+
+          let n = student.name || (student.student_data ? student.student_data.Name : "Student");
+          const filename = n.replace(/\s+/g,"_") + ".jpg";
+
+          try {
+            const response = await fetch(student.photo_url);
+            const blob = await response.blob();
+            zip.file(filename, blob);
+          } catch(err) {
+            console.error("Failed to fetch photo for", n, err);
+          }
+        }
+
+        const content = await zip.generateAsync({type:"blob"});
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(content);
+
+        const sch = document.getElementById("school-filter").value;
+        const typeStr = sch ? sch.split('@')[0].toUpperCase() : "AllData";
+        link.download = `Photos_${typeStr}.zip`;
+        link.click();
+        
+      } catch(err) {
+        alert("Error creating ZIP: " + err.message);
+      } finally {
+        btn.innerHTML = btnText;
+        btn.disabled = false;
       }
     };
 
