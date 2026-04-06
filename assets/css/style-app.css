@@ -1,5 +1,5 @@
-/* ============================================================
-   SHARED APP STYLES — Excel ID Card Management System
+﻿/* ============================================================
+   SHARED APP STYLES â€” Excel ID Card Management System
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
@@ -34,7 +34,7 @@ body {
   overflow-x: hidden;
 }
 
-/* ── Background mesh ── */
+/* â”€â”€ Background mesh â”€â”€ */
 .bg-mesh {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
@@ -43,7 +43,7 @@ body {
     linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
 }
 
-/* ── Card ── */
+/* â”€â”€ Card â”€â”€ */
 .card {
   background: var(--card-bg);
   backdrop-filter: blur(20px);
@@ -53,7 +53,7 @@ body {
   padding: 2.5rem;
 }
 
-/* ── Logo header ── */
+/* â”€â”€ Logo header â”€â”€ */
 .app-logo {
   display: flex; align-items: center; gap: 12px;
   margin-bottom: 0.25rem;
@@ -62,7 +62,7 @@ body {
 .app-logo-text { font-size: 1.1rem; font-weight: 700; color: var(--text); }
 .app-logo-text span { color: var(--primary); }
 
-/* ── Form elements ── */
+/* â”€â”€ Form elements â”€â”€ */
 .form-group { margin-bottom: 1.25rem; }
 .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
 
@@ -83,7 +83,7 @@ body {
 select.form-control { cursor: pointer; }
 select.form-control option { background: var(--dark2); }
 
-/* ── Buttons ── */
+/* â”€â”€ Buttons â”€â”€ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   padding: 0.85rem 1.8rem;
@@ -103,7 +103,7 @@ select.form-control option { background: var(--dark2); }
 .btn-full { width: 100%; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
-/* ── Alert ── */
+/* â”€â”€ Alert â”€â”€ */
 .alert {
   padding: 0.85rem 1.1rem;
   border-radius: var(--radius-sm);
@@ -115,12 +115,12 @@ select.form-control option { background: var(--dark2); }
 .alert-success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #86efac; }
 .alert-info    { background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.4); color: #7dd3fc; }
 
-/* ── Spinner ── */
+/* â”€â”€ Spinner â”€â”€ */
 .spinner { width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
 .spinner.show { display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Navbar ── */
+/* â”€â”€ Navbar â”€â”€ */
 .app-nav {
   position: sticky; top: 0; z-index: 100;
   background: rgba(15,23,42,0.95);
@@ -138,13 +138,13 @@ select.form-control option { background: var(--dark2); }
 }
 .user-badge i { font-size: 0.9rem; }
 
-/* ── Page container ── */
+/* â”€â”€ Page container â”€â”€ */
 .page-container { position: relative; z-index: 1; padding: 2rem; max-width: 1400px; margin: 0 auto; }
 .page-title { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.25rem; }
 .page-title span { color: var(--primary); }
 .page-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
 
-/* ── Stats Grid ── */
+/* â”€â”€ Stats Grid â”€â”€ */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
 .stat-card {
   background: var(--card-bg); backdrop-filter: blur(16px);
@@ -156,7 +156,7 @@ select.form-control option { background: var(--dark2); }
 .stat-num { font-size: 2.2rem; font-weight: 800; color: var(--primary); display: block; }
 .stat-label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.25rem; }
 
-/* ── Table ── */
+/* â”€â”€ Table â”€â”€ */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 thead { background: rgba(14,165,233,0.1); }
@@ -171,7 +171,7 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
 .badge-blue { background: rgba(14,165,233,0.2); color: var(--primary); }
 .badge-green { background: rgba(34,197,94,0.2); color: var(--success); }
 
-/* ── Filter bar ── */
+/* â”€â”€ Filter bar â”€â”€ */
 .filter-bar {
   display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;
   background: var(--card-bg); backdrop-filter: blur(16px);
@@ -181,7 +181,7 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
 .filter-bar .form-group { margin-bottom: 0; flex: 1; min-width: 180px; }
 .filter-bar .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
-/* ── Photo upload zone ── */
+/* â”€â”€ Photo upload zone â”€â”€ */
 .photo-upload-zone {
   border: 2px dashed var(--border); border-radius: var(--radius-sm);
   padding: 1.75rem; text-align: center; cursor: pointer;
@@ -194,12 +194,12 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
 .photo-upload-zone p { color: var(--text-muted); font-size: 0.85rem; }
 .photo-preview { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary); margin: 0.75rem auto 0; display: block; }
 
-/* ── Empty state ── */
+/* â”€â”€ Empty state â”€â”€ */
 .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
 .empty-state i { font-size: 3rem; margin-bottom: 1rem; display: block; opacity: 0.4; }
 .empty-state p { font-size: 0.95rem; }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 640px) {
   .page-container { padding: 1rem; }
   .app-nav { padding: 0.75rem 1rem; }
@@ -207,7 +207,7 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
   .page-title { font-size: 1.3rem; }
 }
 
-/* ── App Layout (Sidebar + Main) ── */
+/* â”€â”€ App Layout (Sidebar + Main) â”€â”€ */
 .app-layout {
   display: flex;
   min-height: 100vh;
@@ -215,7 +215,7 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
   z-index: 1;
 }
 
-/* ── Sidebar ── */
+/* â”€â”€ Sidebar â”€â”€ */
 .sidebar {
   width: 260px;
   background: rgba(15,23,42,0.95);
@@ -274,7 +274,7 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
   border-top: 1px solid var(--border);
 }
 
-/* ── Main Content ── */
+/* â”€â”€ Main Content â”€â”€ */
 .main-content {
   flex: 1;
   display: flex;
@@ -306,7 +306,7 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
   flex: 1;
 }
 
-/* ── Modal ── */
+/* â”€â”€ Modal â”€â”€ */
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
   z-index: 1000; display: none; align-items: center; justify-content: center;
@@ -332,3 +332,4 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
   .topbar { padding: 0 1rem; }
   .content-area { padding: 1rem; }
 }
+

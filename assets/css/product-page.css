@@ -1,5 +1,5 @@
-/* ============================================================
-   EXCEL ID CARDS — Product Page Stylesheet
+﻿/* ============================================================
+   EXCEL ID CARDS â€” Product Page Stylesheet
    Extends style.css with product-specific components
 ============================================================ */
 
@@ -606,3 +606,4 @@
   .product-gallery-grid .gallery-item--large { grid-column: span 1; }
   .process-steps { grid-template-columns: 1fr; }
 }
+

@@ -1,4 +1,4 @@
-import { supabase } from "./auth.js";
+﻿import { supabase } from "./auth.js";
 
 async function loadDashboardStats() {
   const statSchools = document.getElementById("stat-schools");
@@ -39,3 +39,4 @@ async function loadDashboardStats() {
 }
 
 loadDashboardStats();
+

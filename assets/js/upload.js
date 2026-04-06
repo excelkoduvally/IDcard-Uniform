@@ -1,4 +1,4 @@
-import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from './supabase-config.js';
+﻿import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "./supabase-config.js";
 
 export function resetForm() {
   ["s-name","s-class","s-admin","s-dob","s-phone"].forEach(id => {
@@ -56,3 +56,4 @@ export async function uploadToCloudinary(file, progressCallback) {
     xhr.send(fd);
   });
 }
+

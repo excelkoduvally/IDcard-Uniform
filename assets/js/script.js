@@ -1,11 +1,11 @@
-/* ============================================================
-   EXCEL ID CARDS & UNIFORMS — JavaScript
+﻿/* ============================================================
+   EXCEL ID CARDS & UNIFORMS â€” JavaScript
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', function () {
 
   // ============================================================
-  // NAVBAR — Scroll Effect & Active Link
+  // NAVBAR â€” Scroll Effect & Active Link
   // ============================================================
   const navbar = document.getElementById('navbar');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // ============================================================
-  // POPUP — 5 second delay
+  // POPUP â€” 5 second delay
   // ============================================================
   const popupOverlay = document.getElementById('popup-overlay');
   const popupClose = document.getElementById('popup-close');
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // ============================================================
-  // FLOATING WA BUTTON — entrance animation
+  // FLOATING WA BUTTON â€” entrance animation
   // ============================================================
   setTimeout(() => {
     const floatWa = document.getElementById('float-wa');
@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }, 1000);
 
   // ============================================================
-  // FEATURES CARD — Scroll reveal
+  // FEATURES CARD â€” Scroll reveal
   // ============================================================
   const featuresCard = document.querySelector('.features-card-inner');
   if (featuresCard) {
@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ============================================================
-  // QUOTE SECTION — Scroll reveal
+  // QUOTE SECTION â€” Scroll reveal
   // ============================================================
   const quoteSection = document.querySelector('.quote-grid');
   if (quoteSection) {
@@ -280,11 +280,11 @@ document.addEventListener('DOMContentLoaded', function () {
   // Console branding
   // ============================================================
   console.log('%c Excel ID Card & Uniforms', 'font-size: 18px; font-weight: bold; color: #16a34a;');
-  console.log('%c School ID Card Manufacturer — Calicut, Kerala', 'font-size: 12px; color: #15803d;');
+  console.log('%c School ID Card Manufacturer â€” Calicut, Kerala', 'font-size: 12px; color: #15803d;');
 });
 
 // ============================================================
-// QUOTE FORM — Submit to WhatsApp (global function)
+// QUOTE FORM â€” Submit to WhatsApp (global function)
 // ============================================================
 function submitQuote() {
   const schoolName = document.getElementById('school-name').value.trim();
@@ -292,10 +292,11 @@ function submitQuote() {
 
   let message = 'Hello, I need a quote';
   if (schoolName) message += ' for ' + schoolName;
-  if (product) message += ' — Product: ' + product;
+  if (product) message += ' â€” Product: ' + product;
   message += '. Please share pricing details.';
 
   const encodedMessage = encodeURIComponent(message);
   window.open('https://wa.me/919995168026?text=' + encodedMessage, '_blank');
 }
+
 

@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>School Portal | Upload Data | Excel ID</title>
-  <link rel="icon" type="image/png" sizes="192x192" href="favicon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/images/favicon.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-  <link rel="stylesheet" href="style-app.css" />
+  <link rel="stylesheet" href="../assets/css/style-app.css" />
   <style>
     .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
     @media (max-width: 900px) { .upload-grid { grid-template-columns: 1fr; } }
@@ -23,7 +23,7 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          <img src="excel_logo_transparent.png" alt="Excel Logo">
+          <img src="../assets/images/excel_logo_transparent.png" alt="Excel Logo">
           <span>School <b>Portal</b></span>
         </div>
       </div>
@@ -115,10 +115,10 @@
     </main>
   </div>
 
-  <script type="module" src="auth.js"></script>
+  <script type="module" src="../assets/js/auth.js"></script>
   <script type="module">
-    import { guardPage, supabase } from './auth.js';
-    import { handlePreview, resetForm, uploadToCloudinary } from './upload.js';
+    import { guardPage, supabase } from "../assets/js/auth.js";
+    import { handlePreview, resetForm, uploadToCloudinary } from "../assets/js/upload.js";
 
     let currentUser = null;
     guardPage('school').then(u => currentUser = u);
@@ -240,3 +240,4 @@
   </script>
 </body>
 </html>
+

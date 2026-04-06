@@ -1,11 +1,11 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+﻿import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { SUPABASE_URL, SUPABASE_ANON, ADMIN_EMAIL } from "./supabase-config.js";
 
-// ── Supabase Client (shared across all pages) ──
+// â”€â”€ Supabase Client (shared across all pages) â”€â”€
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 export { ADMIN_EMAIL };
 
-// ── Auth Guard: Check role and redirect accordingly ──
+// â”€â”€ Auth Guard: Check role and redirect accordingly â”€â”€
 export async function guardPage(role) {
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
@@ -38,13 +38,13 @@ export async function guardPage(role) {
   return user;
 }
 
-// ── Logout ──
+// â”€â”€ Logout â”€â”€
 window.handleLogout = async function () {
   await supabase.auth.signOut();
   window.location.href = "login.html";
 };
 
-// ── Login Page Logic ──
+// â”€â”€ Login Page Logic â”€â”€
 const loginBtn = document.getElementById("login-btn");
 if (loginBtn) {
   // If already logged in, redirect away
@@ -80,7 +80,7 @@ if (loginBtn) {
       setLoading(false);
       return;
     }
-    showAlert("Login successful! Redirecting…", "success");
+    showAlert("Login successful! Redirectingâ€¦", "success");
     setTimeout(() => {
       window.location.href = data.user.email === ADMIN_EMAIL ? "admin.html" : "upload.html";
     }, 700);
@@ -88,3 +88,4 @@ if (loginBtn) {
 
   document.addEventListener("keydown", e => { if (e.key === "Enter") window.handleLogin(); });
 }
+

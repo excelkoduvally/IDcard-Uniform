@@ -1,4 +1,4 @@
-export function exportExcel(dataArray, type) {
+﻿export function exportExcel(dataArray, type) {
   if (!dataArray || dataArray.length === 0) {
     alert("No data to export.");
     return;
@@ -29,3 +29,4 @@ export function exportExcel(dataArray, type) {
 
   window.XLSX.writeFile(wb, fname);
 }
+
