@@ -1,4 +1,4 @@
-﻿import { supabase } from "./auth.js";
+import { supabase } from "./auth.js";
 
 async function loadDashboardStats() {
   const statSchools = document.getElementById("stat-schools");
@@ -19,7 +19,7 @@ async function loadDashboardStats() {
     // Total students
     const { data: students, error: stuErr } = await supabase
       .from('students')
-      .select('created_at');
+      .select('student_data, created_at');
     
     if (stuErr) throw stuErr;
     statStudents.textContent = students ? students.length : 0;

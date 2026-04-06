@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="../assets/images/favicon.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="../assets/css/style-app.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
     @media (max-width: 900px) { .upload-grid { grid-template-columns: 1fr; } }
@@ -49,60 +50,120 @@
 
         <div class="upload-grid">
           <div class="card">
-            <div class="section-label"><i class="fas fa-user-plus"></i> Add New Record</div>
+            <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem">
+              <i class="fas fa-info-circle"></i> Student Information
+            </div>
+            
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" id="s-name" class="form-control" placeholder="Full Name" />
+            </div>
 
             <div class="form-group">
-              <label>Student Name</label>
-              <input type="text" id="s-name" class="form-control" placeholder="Full Name" />
+              <label>Admission Number</label>
+              <input type="text" id="s-admin" class="form-control" placeholder="Enter Admsn number" />
+            </div>
+
+            <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem; margin-top:2.5rem;">
+              <i class="fas fa-chalkboard"></i> Class Details
             </div>
 
             <div style="display:flex; gap:1rem">
               <div class="form-group" style="flex:1">
                 <label>Class</label>
-                <input type="text" id="s-class" class="form-control" placeholder="e.g. 10" />
+                <select id="s-class" class="form-control">
+                  <option value="">Select Class</option>
+                  <option value="LKG">LKG</option>
+                  <option value="UKG">UKG</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                  <option value="9">9</option>
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12</option>
+                </select>
               </div>
               <div class="form-group" style="flex:1">
                 <label>Division</label>
-                <input type="text" id="s-div" class="form-control" placeholder="e.g. A" />
+                <select id="s-div" class="form-control">
+                  <option value="">Select Division</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                  <option value="F">F</option>
+                  <option value="G">G</option>
+                  <option value="H">H</option>
+                  <option value="I">I</option>
+                  <option value="J">J</option>
+                </select>
               </div>
             </div>
 
-            <div class="form-group">
-              <label>Admission No. / ID No.</label>
-              <input type="text" id="s-admin" class="form-control" placeholder="Enter Admsn number" />
+            <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem; margin-top:2.5rem;">
+              <i class="fas fa-user"></i> Personal
+            </div>
+
+            <div style="display:flex; gap:1rem">
+              <div class="form-group" style="flex:1">
+                <label>Date of Birth</label>
+                <input type="date" id="s-dob" class="form-control" />
+              </div>
+
+              <div class="form-group" style="flex:1">
+                <label>Parent Phone</label>
+                <input type="tel" id="s-phone" class="form-control" placeholder="Mobile Number" />
+              </div>
+            </div>
+
+            <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem; margin-top:2.5rem;">
+              <i class="fas fa-camera-retro"></i> Photo Upload
             </div>
 
             <div class="form-group">
-              <label>Date of Birth</label>
-              <input type="date" id="s-dob" class="form-control" />
-            </div>
-
-            <div class="form-group">
-              <label>Parent Contact Phone</label>
-              <input type="tel" id="s-phone" class="form-control" />
-            </div>
-
-            <div class="form-group">
-              <label>Student Photo</label>
+              <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+                <i class="fas fa-check-circle" style="color:#22c55e;"></i> Use passport-size photo<br>
+                <i class="fas fa-check-circle" style="color:#22c55e;"></i> White background recommended
+              </p>
               <div class="photo-upload-zone" id="drop-zone">
                 <input type="file" id="s-photo" accept="image/*" />
                 <i class="fas fa-camera"></i>
                 <p>Click to upload portrait photo</p>
               </div>
-              <img id="photo-preview" class="photo-preview" style="display:none" alt="Preview"/>
+              
+              <div id="preview-container" style="display:none; text-align:center; margin-top:1.5rem; padding:1.5rem; border:1px dashed #22c55e; border-radius:8px; background:rgba(34,197,94,0.05)">
+                <p style="font-size:0.85rem; font-weight:700; color:#22c55e; margin-bottom:0.5rem;"><i class="fas fa-check-circle"></i> Preview Confirmed</p>
+                <img id="photo-preview" class="photo-preview" style="display:none; margin: 0 auto;" alt="Preview"/>
+              </div>
             </div>
 
             <div class="progress-bar-wrap" id="progress-wrap">
               <div class="progress-bar-fill" id="progress-fill"></div>
             </div>
 
-            <button id="upload-btn" class="btn btn-primary btn-full" onclick="submitData()">
+            <button id="upload-btn" class="btn btn-primary btn-full" onclick="submitData()" style="margin-top:1.5rem;">
               <span id="btn-text"><i class="fas fa-save"></i> Upload Student</span>
               <div class="spinner" id="spinner"></div>
             </button>
           </div>
 
           <div>
+            <div class="card" style="padding: 1.5rem; margin-bottom:1.5rem;">
+              <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1rem">
+                <i class="fas fa-file-excel"></i> Bulk Upload Data
+              </div>
+              <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Upload a filled Excel template containing student data.</p>
+              <input type="file" id="excel-file" accept=".xlsx" class="form-control" style="margin-bottom:1rem" />
+              <button class="btn btn-success btn-full" onclick="uploadExcel()"><i class="fas fa-upload"></i> Upload Bulk Excel</button>
+            </div>
+
             <div class="card" style="padding: 1.5rem">
               <div class="section-label" style="margin-bottom:1rem"><i class="fas fa-inbox"></i> Uploaded by your school</div>
               <div id="recent-list">

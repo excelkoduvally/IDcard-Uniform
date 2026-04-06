@@ -1,4 +1,4 @@
-﻿export function exportExcel(dataArray, type) {
+export function exportExcel(dataArray, type) {
   if (!dataArray || dataArray.length === 0) {
     alert("No data to export.");
     return;
@@ -27,6 +27,19 @@
 
   const fname = `Excel_IDCards_${type.replace(/ /g, "_")}_${new Date().toLocaleDateString("en-GB").replace(/\//g, "-")}.xlsx`;
 
+  window.XLSX.writeFile(wb, fname);
+}
+
+export function exportDynamicExcel(students) {
+  const rows = students.map(s => s.student_data || {});
+  if (rows.length === 0) {
+    alert("No data available to export.");
+    return;
+  }
+  const ws = window.XLSX.utils.json_to_sheet(rows);
+  const wb = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(wb, ws, "Students");
+  const fname = `Students_Export_${new Date().getTime()}.xlsx`;
   window.XLSX.writeFile(wb, fname);
 }
 

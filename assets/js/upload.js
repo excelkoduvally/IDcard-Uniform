@@ -1,12 +1,14 @@
-﻿import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "./supabase-config.js";
+import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "./supabase-config.js";
 
 export function resetForm() {
-  ["s-name","s-class","s-admin","s-dob","s-phone"].forEach(id => {
+  ["s-name","s-class","s-div","s-admin","s-dob","s-phone"].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.value = "";
   });
   const prev = document.getElementById("photo-preview");
   if(prev) { prev.src = ""; prev.style.display = "none"; }
+  const prevContainer = document.getElementById("preview-container");
+  if(prevContainer) { prevContainer.style.display = "none"; }
   const photoInput = document.getElementById("s-photo");
   if(photoInput) photoInput.value = "";
 }
@@ -20,7 +22,10 @@ export function handlePreview(e) {
   const reader = new FileReader();
   reader.onload = ev => {
     const img = document.getElementById("photo-preview");
-    img.src = ev.target.result; img.style.display = "block";
+    const container = document.getElementById("preview-container");
+    img.src = ev.target.result; 
+    img.style.display = "block";
+    if (container) container.style.display = "block";
   };
   reader.readAsDataURL(file);
   return file;
@@ -55,5 +60,41 @@ export async function uploadToCloudinary(file, progressCallback) {
     xhr.onerror = () => reject(new Error("Network error during upload."));
     xhr.send(fd);
   });
+}
+
+import { supabase } from "./auth.js";
+
+window.uploadExcel = async function () {
+  const fileInput = document.getElementById("excel-file");
+  if(!fileInput) return;
+  const file = fileInput.files[0];
+
+  if (!file) {
+    alert("Please upload an Excel file first.");
+    return;
+  }
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = window.XLSX.read(data);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = window.XLSX.utils.sheet_to_json(sheet);
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    for (const row of rows) {
+      await supabase
+        .from("students")
+        .insert({
+          school_id: user.id,
+          student_data: row
+        });
+    }
+
+    alert("Bulk upload successful!");
+    fileInput.value = "";
+  } catch(err) {
+    alert("Error uploading Excel: " + err.message);
+  }
 }
 

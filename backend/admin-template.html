@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Template Builder | Excel Admin</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/images/favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="../assets/css/style-app.css" />
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="../assets/images/excel_logo_transparent.png" alt="Excel Logo">
+          <span>Excel <b>Admin</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="admin-template.html" class="active"><i class="fas fa-table"></i> Template Builder</a></li>
+        <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create User</a></li>
+        <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
+        <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline btn-full" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Data Templates</div>
+        <div class="user-badge"><i class="fas fa-shield-alt"></i> Admin Panel</div>
+      </div>
+
+      <div class="content-area">
+        <h1 class="page-title">Generate <span>Excel Template</span></h1>
+        
+        <div class="card">
+          <div class="section-label"><i class="fas fa-plus-circle"></i> Add Template Field</div>
+
+          <div style="display:flex; gap:1rem; align-items:flex-end; margin-bottom:1rem">
+            <div class="form-group" style="flex:2; margin-bottom:0">
+              <label>Field Name (e.g. Name, Blood_Group)</label>
+              <input type="text" id="field-name" class="form-control" placeholder="Field name">
+            </div>
+            
+            <div class="form-group" style="flex:1; margin-bottom:0">
+              <label>Field Type</label>
+              <select id="field-type" class="form-control">
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="date">Date</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="flex:1; margin-bottom:0; display:flex; align-items:center; gap:0.5rem; height:48px;">
+              <input type="checkbox" id="field-required" style="width:20px; height:20px">
+              <label style="margin:0; font-weight:600">Required</label>
+            </div>
+
+            <button class="btn btn-success" onclick="addField()"><i class="fas fa-plus"></i> Add Field</button>
+          </div>
+
+          <hr style="border:0; border-top:1px solid var(--border); margin:1.5rem 0" />
+
+          <div class="section-label"><i class="fas fa-list"></i> Template Structure</div>
+          <div class="table-wrap" style="margin-bottom:1.5rem">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field Name</th>
+                  <th>Type</th>
+                  <th>Required</th>
+                </tr>
+              </thead>
+              <tbody id="field-list">
+                <tr><td colspan="3"><div class="empty-state"><p>No fields added yet.</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <button class="btn btn-primary btn-full" onclick="saveTemplate()"><i class="fas fa-save"></i> Save Template</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="../assets/js/auth.js"></script>
+  <script type="module" src="../assets/js/template-builder.js"></script>
+</body>
+</html>
