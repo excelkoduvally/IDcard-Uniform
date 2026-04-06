@@ -31,11 +31,26 @@ export function exportExcel(dataArray, type) {
 }
 
 export function exportDynamicExcel(students) {
-  const rows = students.map(s => s.student_data || {});
+  const rows = students.map(s => {
+    if (s.student_data) return s.student_data;
+    // Fallback for old/traditional records without student_data JSON
+    return {
+      "Student Name": s.name || "",
+      "Class": s.class || "",
+      "Admission No": s.admission_no || "",
+      "School Email": s.school_email || "",
+      "Date of Birth": s.dob || "",
+      "Parent Phone": s.parent_phone || "",
+      "Photo URL": s.photo_url || "",
+      "Uploaded On": s.created_at ? new Date(s.created_at).toLocaleDateString("en-IN") : ""
+    };
+  });
+
   if (rows.length === 0) {
     alert("No data available to export.");
     return;
   }
+
   const ws = window.XLSX.utils.json_to_sheet(rows);
   const wb = window.XLSX.utils.book_new();
   window.XLSX.utils.book_append_sheet(wb, ws, "Students");
