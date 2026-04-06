@@ -63,11 +63,28 @@
           <!-- Storage Usage -->
           <div class="card">
             <h3 style="margin-bottom:1rem"><i class="fas fa-database" style="color:var(--primary)"></i> Storage Usage</h3>
-            <div class="storage-bar">
-              <div id="storage-fill"></div>
+            
+            <div style="margin-bottom: 1.5rem;">
+               <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem;">
+                   <span style="font-size:0.85rem; color:var(--text); font-weight:600"><i class="fas fa-table" style="margin-right:4px"></i> Database (Supabase)</span>
+                   <span id="supabase-storage-text" style="font-size:0.8rem; color:var(--text-muted); font-weight:600">Calculating...</span>
+               </div>
+               <div class="storage-bar">
+                 <div id="supabase-storage-fill"></div>
+               </div>
+               <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem">JSON text allocation (Limit: 500MB)</p>
             </div>
-            <p id="storage-text" style="font-size:0.9rem; color:var(--text-muted); font-weight:600">Calculating...</p>
-            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem">Calculated based on database JSON allocation limit (500MB).</p>
+
+            <div>
+               <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem;">
+                   <span style="font-size:0.85rem; color:var(--text); font-weight:600"><i class="fas fa-images" style="margin-right:4px"></i> Photos (Cloudinary)</span>
+                   <span id="cloudinary-storage-text" style="font-size:0.8rem; color:var(--text-muted); font-weight:600">Calculating...</span>
+               </div>
+               <div class="storage-bar">
+                 <div id="cloudinary-storage-fill" style="background:linear-gradient(90deg,#0ea5e9,#8b5cf6);"></div>
+               </div>
+               <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem">Estimated usage (~500KB/photo | Limit: 25GB)</p>
+            </div>
           </div>
 
           <!-- Data Actions -->

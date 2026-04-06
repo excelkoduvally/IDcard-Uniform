@@ -4,8 +4,10 @@ async function loadStorageStats() {
   const statSchools = document.getElementById("stat-schools");
   const statStudents = document.getElementById("stat-students");
   const statPhotos = document.getElementById("stat-photos");
-  const storageFill = document.getElementById("storage-fill");
-  const storageText = document.getElementById("storage-text");
+  const supabaseFill = document.getElementById("supabase-storage-fill");
+  const supabaseText = document.getElementById("supabase-storage-text");
+  const cloudinaryFill = document.getElementById("cloudinary-storage-fill");
+  const cloudinaryText = document.getElementById("cloudinary-storage-text");
   const cleanupSelect = document.getElementById("cleanup-school-select");
 
   if (!statSchools) return;
@@ -42,14 +44,25 @@ async function loadStorageStats() {
     const photos = (students || []).filter(s => s.photo_url);
     statPhotos.textContent = photos.length;
 
-    // 4. Estimate Database Storage
+    // 4. Estimate Database Storage (Supabase)
     let stringifiedData = JSON.stringify(students || []);
-    const sizeMB = stringifiedData.length / 1024 / 1024;
-    const limitMB = 500;
-    const percent = Math.min((sizeMB / limitMB) * 100, 100);
+    let sizeMB = stringifiedData.length / 1024 / 1024;
+    let displayMB = sizeMB > 0 && sizeMB < 0.01 ? "< 0.01" : sizeMB.toFixed(2);
+    
+    const limitSupabase = 500;
+    const percentSupabase = Math.min((sizeMB / limitSupabase) * 100, 100);
 
-    if (storageFill) storageFill.style.width = percent + "%";
-    if (storageText) storageText.innerText = sizeMB.toFixed(2) + " MB / 500 MB used";
+    if (supabaseFill) supabaseFill.style.width = Math.max(percentSupabase, 0.5) + "%";
+    if (supabaseText) supabaseText.innerText = displayMB + " MB / 500 MB used";
+
+    // 5. Estimate Media Storage (Cloudinary)
+    // Assuming an average of 500KB per photo uploaded
+    const cloudinarySizeMB = photos.length * 0.5;
+    const limitCloudinary = 25000; // 25GB
+    const percentCloudinary = Math.min((cloudinarySizeMB / limitCloudinary) * 100, 100);
+
+    if (cloudinaryFill) cloudinaryFill.style.width = Math.max(percentCloudinary, 0.5) + "%";
+    if (cloudinaryText) cloudinaryText.innerText = cloudinarySizeMB.toFixed(2) + " MB / 25 GB used";
 
   } catch (err) {
     console.error("Failed to load storage stats:", err);
