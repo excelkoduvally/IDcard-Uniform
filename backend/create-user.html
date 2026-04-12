@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -26,10 +26,10 @@
         <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
         <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
         <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
-        <li class="mobile-only"><a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
       </ul>
       <div class="sidebar-footer">
-        <button class="btn btn-outline btn-full" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        <button class="btn btn-outline btn-full" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</button>
       </div>
     </aside>
 
@@ -112,13 +112,29 @@
         // Insert metadata into completely separate 'schools' table
         const { error: dbErr } = await supabase
           .from('schools')
-          .insert([
+          .upsert([
             { id: authData.user.id, school_name: name, email, phone, address: addr, status: 'active' }
           ]);
         
         if (dbErr) throw dbErr;
 
-        showAlert("School account successfully created!", "success");
+        // Create default template for the new school
+        const defaultFields = [
+          { school_id: authData.user.id, field_name: "Name", field_type: "text", required: true, order_no: 0 },
+          { school_id: authData.user.id, field_name: "Admission No", field_type: "text", required: true, order_no: 1 },
+          { school_id: authData.user.id, field_name: "Class", field_type: "text", required: true, order_no: 2 },
+          { school_id: authData.user.id, field_name: "Division", field_type: "text", required: false, order_no: 3 },
+          { school_id: authData.user.id, field_name: "Parent Name", field_type: "text", required: false, order_no: 4 },
+          { school_id: authData.user.id, field_name: "House", field_type: "text", required: false, order_no: 5 },
+          { school_id: authData.user.id, field_name: "Place", field_type: "text", required: false, order_no: 6 },
+          { school_id: authData.user.id, field_name: "Phone Number", field_type: "text", required: true, order_no: 7 }
+        ];
+
+        const { error: templateErr } = await supabase.from("templates").insert(defaultFields);
+        
+        if (templateErr) throw templateErr;
+
+        showAlert("School account successfully created with default template!", "success");
         setTimeout(() => window.location.href = "schools.html", 1500);
 
       } catch (err) {
