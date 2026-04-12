@@ -7,7 +7,6 @@
   <link rel="icon" type="image/png" sizes="192x192" href="../assets/images/favicon.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="../assets/css/style-app.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     .school-filter-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
@@ -34,7 +33,6 @@
       </div>
       <ul class="sidebar-menu">
         <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-        <li><a href="admin-template.html"><i class="fas fa-hammer"></i> Template Builder</a></li>
         <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create User</a></li>
         <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
         <li><a href="students.html" class="active"><i class="fas fa-users"></i> Students</a></li>
@@ -76,7 +74,6 @@
             </div>
           </div>
           <div class="actions">
-            <button class="btn btn-success" id="btn-export"><i class="fas fa-file-excel"></i> Download Excel</button>
             <button class="btn btn-info" id="btn-export-photos" onclick="downloadPhotos()"><i class="fas fa-file-archive"></i> Download Photos</button>
             <button class="btn btn-outline" onclick="loadStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
           </div>
@@ -115,7 +112,6 @@
   <script type="module" src="../assets/js/auth.js"></script>
   <script type="module">
     import { guardPage, supabase } from "../assets/js/auth.js";
-    import { exportDynamicExcel } from "../assets/js/excel.js";
 
     guardPage('admin');
 
@@ -199,8 +195,7 @@
 
       document.getElementById("record-count").textContent = `${filteredStudents.length} Records`;
       
-      const typeStr = sch ? sch.split('@')[0].toUpperCase() : (cls ? `Class_${cls}` : "AllData");
-      document.getElementById("btn-export").onclick = () => exportDynamicExcel(filteredStudents);
+
 
       renderTable();
     };

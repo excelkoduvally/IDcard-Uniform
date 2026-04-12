@@ -21,7 +21,6 @@
       </div>
       <ul class="sidebar-menu">
         <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-        <li><a href="admin-template.html"><i class="fas fa-hammer"></i> Template Builder</a></li>
         <li><a href="create-user.html" class="active"><i class="fas fa-user-plus"></i> Create User</a></li>
         <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
         <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
@@ -85,7 +84,7 @@
     guardPage('admin');
 
     window.createSchool = async function() {
-      const name = document.getElementById("sch-name").value.trim();
+      const schoolName = document.getElementById("sch-name").value.trim();
       const email = document.getElementById("sch-email").value.trim();
       const pass = document.getElementById("sch-pass").value;
       const phone = document.getElementById("sch-phone").value.trim();
@@ -94,7 +93,7 @@
       const elAlert = document.getElementById("alert-box");
       const showAlert = (msg, type="error") => { elAlert.className=`alert alert-${type} show`; elAlert.textContent = msg; };
 
-      if (!name || !email || !pass) { showAlert("Name, Email and Password are required."); return; }
+      if (!schoolName || !email || !pass) { showAlert("Name, Email and Password are required."); return; }
 
       document.getElementById("create-btn").disabled = true;
       document.getElementById("spinner").classList.add("show");
@@ -109,12 +108,20 @@
 
         if (authErr) throw authErr;
 
-        // Insert metadata into completely separate 'schools' table
+        // Ensure we wait brief moment for any database triggers to finish before we upsert
+        await new Promise(r => setTimeout(r, 500));
+
+        // Insert/Update metadata into 'schools' table with the real schoolName
         const { error: dbErr } = await supabase
           .from('schools')
-          .upsert([
-            { id: authData.user.id, school_name: name, email, phone, address: addr, status: 'active' }
-          ]);
+          .upsert({ 
+            id: authData.user.id, 
+            school_name: schoolName, 
+            email: email, 
+            phone: phone, 
+            address: addr, 
+            status: 'active' 
+          }, { onConflict: 'id' });
         
         if (dbErr) throw dbErr;
 
@@ -134,7 +141,7 @@
         
         if (templateErr) throw templateErr;
 
-        showAlert("School account successfully created with default template!", "success");
+        showAlert("School account successfully created with real name and default template!", "success");
         setTimeout(() => window.location.href = "schools.html", 1500);
 
       } catch (err) {

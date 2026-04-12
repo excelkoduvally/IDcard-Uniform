@@ -65,37 +65,4 @@ export async function uploadToCloudinary(file, progressCallback) {
 
 import { supabase } from "./auth.js";
 
-window.uploadExcel = async function () {
-  const fileInput = document.getElementById("excel-file");
-  if(!fileInput) return;
-  const file = fileInput.files[0];
-
-  if (!file) {
-    alert("Please upload an Excel file first.");
-    return;
-  }
-
-  try {
-    const data = await file.arrayBuffer();
-    const workbook = window.XLSX.read(data);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = window.XLSX.utils.sheet_to_json(sheet);
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    for (const row of rows) {
-      await supabase
-        .from("students")
-        .insert({
-          school_id: user.id,
-          student_data: row
-        });
-    }
-
-    alert("Bulk upload successful!");
-    fileInput.value = "";
-  } catch(err) {
-    alert("Error uploading Excel: " + err.message);
-  }
-}
 

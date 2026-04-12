@@ -3,18 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Portal | Upload Data | Excel ID</title>
+  <title>School Portal | Student Registration | Excel ID</title>
   <link rel="icon" type="image/png" sizes="192x192" href="../assets/images/favicon.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="../assets/css/style-app.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
-    @media (max-width: 900px) { .upload-grid { grid-template-columns: 1fr; } }
-    .section-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); margin-bottom: 1.25rem; }
-    .record-item { display: grid; grid-template-columns: 56px 1fr; gap: 1rem; align-items: center; padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 0.5rem; background: rgba(15,23,42,0.5); }
-    .progress-bar-wrap { height: 6px; background: var(--dark3); border-radius: 100px; margin: 0.5rem 0; overflow: hidden; display: none; }
-    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.2s; }
+    .upload-container { max-width: 820px; margin: 0 auto; }
+    .section-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); margin-bottom: 1.25rem; }
+    .progress-bar-wrap { height: 8px; background: var(--dark3); border-radius: 100px; margin: 0.75rem 0; overflow: hidden; display: none; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.25s; }
+    .td-photo { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); flex-shrink:0; }
+    .record-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 0.5rem; background: rgba(15,23,42,0.5); transition: border-color 0.2s; }
+    .record-item:hover { border-color: var(--primary); }
+    .record-info { flex: 1; min-width: 0; }
+    .record-info strong { display: block; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .record-info span { font-size: 0.8rem; color: var(--text-muted); }
+    .search-wrap { position: relative; margin-bottom: 1rem; }
+    .search-wrap i { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+    .search-wrap input { padding-left: 2.3rem; width: 100%; }
+    .pagination-wrap { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+    .page-btn { padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .page-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+    .field-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+    .input-valid { border-color: #22c55e !important; }
+    .input-invalid { border-color: #ef4444 !important; }
+    .status-msg { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem; font-size: 0.9rem; font-weight: 600; display: none; }
+    .status-msg.loading { background: rgba(99,102,241,0.12); color: #818cf8; border:1px solid rgba(99,102,241,0.3); }
+    .status-msg.success { background: rgba(34,197,94,0.12); color: #22c55e; border:1px solid rgba(34,197,94,0.3); }
+    .status-msg.error { background: rgba(239,68,68,0.12); color: #f87171; border:1px solid rgba(239,68,68,0.3); }
+    @media (max-width: 600px) {
+      .upload-container { padding: 0; }
+      .record-item { flex-wrap: nowrap; }
+    }
   </style>
 </head>
 <body>
@@ -29,7 +50,7 @@
         </div>
       </div>
       <ul class="sidebar-menu">
-        <li><a href="upload.html" class="active"><i class="fas fa-cloud-upload-alt"></i> Upload Student</a></li>
+        <li><a href="upload.html" class="active"><i class="fas fa-user-plus"></i> Add Student</a></li>
         <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
         <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
       </ul>
@@ -40,40 +61,40 @@
 
     <main class="main-content">
       <div class="topbar">
-        <div class="topbar-title">Data Collection</div>
+        <div class="topbar-title">Student Registration</div>
         <div class="user-badge"><i class="fas fa-school"></i> <span class="user-name-display">Loading...</span></div>
       </div>
 
       <div class="content-area">
-        <h1 class="page-title">Submit <span>Student Details</span></h1>
-        
-        <div id="alert-box" class="alert"></div>
+        <h1 class="page-title">Register <span>New Student</span></h1>
 
-        <div class="upload-grid">
+        <div class="upload-container">
           <div class="card">
-            
+
+            <!-- Status messages -->
+            <div id="status-loading" class="status-msg loading"><i class="fas fa-spinner fa-spin"></i> Saving student record...</div>
+            <div id="status-success" class="status-msg success"><i class="fas fa-check-circle"></i> <span id="success-text">Student saved successfully!</span></div>
+            <div id="status-error" class="status-msg error"><i class="fas fa-exclamation-circle"></i> <span id="error-text">Something went wrong.</span></div>
+
             <div id="dynamic-form-wrap">
-              <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading template...</p></div>
+              <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading fields...</p></div>
             </div>
 
             <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem; margin-top:2.5rem;">
-              <i class="fas fa-camera-retro"></i> Photo Upload
+              <i class="fas fa-camera-retro"></i> Passport Photo <span style="color:#ef4444">*</span>
             </div>
 
             <div class="form-group">
-              <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
-                <i class="fas fa-check-circle" style="color:#22c55e;"></i> Use passport-size photo<br>
-                <i class="fas fa-check-circle" style="color:#22c55e;"></i> White background recommended
-              </p>
-              <div class="photo-upload-zone" id="drop-zone">
-                <input type="file" id="s-photo" accept="image/*" />
+              <div class="photo-upload-zone" id="drop-zone" onclick="document.getElementById('s-photo').click()">
+                <input type="file" id="s-photo" accept="image/*" style="display:none" />
                 <i class="fas fa-camera"></i>
-                <p>Click to upload portrait photo</p>
+                <p>Click to select student photo</p>
+                <span style="font-size:0.75rem; color:var(--text-muted)">Max 5MB · JPG, PNG, WEBP</span>
               </div>
               
               <div id="preview-container" style="display:none; text-align:center; margin-top:1.5rem; padding:1.5rem; border:1px dashed #22c55e; border-radius:8px; background:rgba(34,197,94,0.05)">
-                <p style="font-size:0.85rem; font-weight:700; color:#22c55e; margin-bottom:0.5rem;"><i class="fas fa-check-circle"></i> Preview Confirmed</p>
-                <img id="photo-preview" class="photo-preview" style="display:none; margin: 0 auto;" alt="Preview"/>
+                <p style="font-size:0.85rem; font-weight:700; color:#22c55e; margin-bottom:0.8rem;"><i class="fas fa-check-circle"></i> Photo Ready</p>
+                <img id="photo-preview" style="max-width:130px; border-radius:8px; display:none; margin:0 auto;" alt="Preview"/>
               </div>
             </div>
 
@@ -82,27 +103,25 @@
             </div>
 
             <button id="upload-btn" class="btn btn-primary btn-full" onclick="submitData()" style="margin-top:1.5rem;">
-              <span id="btn-text"><i class="fas fa-save"></i> Upload Student</span>
+              <span id="btn-text"><i class="fas fa-save"></i> Save Student Record</span>
               <div class="spinner" id="spinner"></div>
             </button>
           </div>
 
-          <div>
-            <div class="card" style="padding: 1.5rem; margin-bottom:1.5rem;">
-              <div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1rem">
-                <i class="fas fa-file-excel"></i> Bulk Upload Data
-              </div>
-              <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Upload a filled Excel template containing student data.</p>
-              <input type="file" id="excel-file" accept=".xlsx" class="form-control" style="margin-bottom:1rem" />
-              <button class="btn btn-success btn-full" onclick="uploadExcel()"><i class="fas fa-upload"></i> Upload Bulk Excel</button>
+          <!-- Recent records with search + pagination -->
+          <div class="card" style="padding: 1.5rem; margin-top: 2rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+              <div class="section-label" style="margin:0"><i class="fas fa-history"></i> Recent Students (<span id="total-count">0</span>)</div>
+              <button class="btn btn-outline btn-sm" onclick="loadRecent()"><i class="fas fa-sync-alt"></i></button>
             </div>
-
-            <div class="card" style="padding: 1.5rem">
-              <div class="section-label" style="margin-bottom:1rem"><i class="fas fa-inbox"></i> Uploaded by your school</div>
-              <div id="recent-list">
-                <div class="empty-state"><p>No uploads yet.</p></div>
-              </div>
+            <div class="search-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="search-query" class="form-control" placeholder="Search by name or admission no..." oninput="searchStudents()">
             </div>
+            <div id="recent-list">
+              <div class="empty-state"><p>No records yet.</p></div>
+            </div>
+            <div class="pagination-wrap" id="pagination"></div>
           </div>
         </div>
       </div>
@@ -116,125 +135,274 @@
 
     let currentUser = null;
     let schoolFields = [];
+    let allRecords = [];
+    let currentPage = 1;
+    const PAGE_SIZE = 20;
 
     guardPage('school').then(u => {
       currentUser = u;
+      document.querySelector(".user-name-display").textContent = u.email?.split('@')[0] || u.email;
       loadTemplate();
+      loadRecent();
     });
 
+    // ── HELPERS ──────────────────────────────────────────────
+    function showStatus(type, msg) {
+      ['loading','success','error'].forEach(t => {
+        const el = document.getElementById(`status-${t}`);
+        el.style.display = t === type ? 'flex' : 'none';
+      });
+      if (type === 'success') document.getElementById('success-text').textContent = msg;
+      if (type === 'error')   document.getElementById('error-text').textContent = msg;
+      if (type !== 'loading') setTimeout(() => clearStatus(), 5000);
+    }
+    function clearStatus() {
+      ['loading','success','error'].forEach(t => {
+        document.getElementById(`status-${t}`).style.display = 'none';
+      });
+    }
+
+    // ── LOAD TEMPLATE ────────────────────────────────────────
     async function loadTemplate() {
       try {
         const { data: fields, error } = await supabase
-          .from("templates")
+          .from("student_fields")
           .select("*")
-          .eq("school_id", currentUser.id)
-          .order("order_no");
+          .eq("active", true)
+          .order("created_at");
           
         if (error) throw error;
         schoolFields = fields || [];
 
         const wrap = document.getElementById("dynamic-form-wrap");
         if (schoolFields.length === 0) {
-          wrap.innerHTML = '<div class="empty-state"><p>No template assigned by Admin yet.</p></div>';
+          wrap.innerHTML = '<div class="empty-state"><p>No fields found. Admin needs to add fields.</p></div>';
           return;
         }
 
-        wrap.innerHTML = '<div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem"><i class="fas fa-list-alt"></i> School Requirements</div>';
+        wrap.innerHTML = `<div class="section-label" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.5rem">
+          <i class="fas fa-list-alt"></i> Student Information
+        </div>`;
         
         schoolFields.forEach(f => {
           const div = document.createElement("div");
           div.className = "form-group";
-          div.innerHTML = `<label>${f.field_name} ${f.required ? '<span style="color:#ef4444">*</span>' : ''}</label>`;
-          
+
+          // Label
+          const label = document.createElement("label");
+          label.style = "display:block; margin-bottom:0.5rem; font-weight:600";
+          label.innerHTML = `${f.field_name} ${f.required ? '<span style="color:#ef4444">*</span>' : '<span style="font-size:0.75rem;color:var(--text-muted)">(optional)</span>'}`;
+          div.appendChild(label);
+
+          // Input
           const input = document.createElement("input");
           input.type = f.field_type || "text";
-          input.name = f.field_name;
+          input.name = f.field_key;
+          input.id  = `field_${f.field_key}`;
           input.className = "form-control dynamic-input";
-          input.placeholder = `Enter ${f.field_name}`;
-          if(f.required) input.required = true;
-          
+          input.placeholder = getPlaceholder(f);
+          if (f.required) input.required = true;
+
+          // Live validation on blur
+          input.addEventListener('blur', () => validateField(f, input));
+          input.addEventListener('input', () => { input.classList.remove('input-invalid','input-valid'); });
           div.appendChild(input);
+
+          // Hint text
+          const hint = document.createElement("p");
+          hint.className = "field-hint";
+          hint.id = `hint_${f.field_key}`;
+          hint.textContent = getHint(f);
+          div.appendChild(hint);
+
           wrap.appendChild(div);
         });
 
       } catch (err) {
-        console.error("Failed to load template", err);
-        document.getElementById("dynamic-form-wrap").innerHTML = '<div class="empty-state"><p>Failed to retrieve template.</p></div>';
+        document.getElementById("dynamic-form-wrap").innerHTML =
+          '<div class="empty-state"><p>Failed to load fields. Please refresh.</p></div>';
       }
     }
 
+    function getPlaceholder(f) {
+      const key = f.field_key;
+      if (key === 'phone') return 'e.g. 9876543210';
+      if (key === 'admission_no') return 'e.g. 2024001';
+      if (key === 'name') return 'Full student name';
+      return `Enter ${f.field_name}`;
+    }
+    function getHint(f) {
+      const key = f.field_key;
+      if (key === 'phone') return '10-digit mobile number';
+      if (key === 'name')  return 'Minimum 2 characters';
+      if (key === 'admission_no') return 'Must be unique within your school';
+      return '';
+    }
+
+    // ── FIELD VALIDATION ────────────────────────────────────
+    function validateField(f, input) {
+      const val = input.value.trim();
+      const hint = document.getElementById(`hint_${f.field_key}`);
+
+      // Required check
+      if (f.required && !val) {
+        setInvalid(input, hint, `${f.field_name} is required`);
+        return false;
+      }
+
+      // Phone: exactly 10 digits
+      if (f.field_key === 'phone' && val) {
+        if (!/^\d{10}$/.test(val)) {
+          setInvalid(input, hint, 'Phone number must be exactly 10 digits');
+          return false;
+        }
+      }
+
+      // Name: minimum 2 chars
+      if (f.field_key === 'name' && val && val.length < 2) {
+        setInvalid(input, hint, 'Name must be at least 2 characters');
+        return false;
+      }
+
+      if (val) setValid(input, hint, getHint(f));
+      return true;
+    }
+
+    function setInvalid(input, hint, msg) {
+      input.classList.add('input-invalid');
+      input.classList.remove('input-valid');
+      if (hint) { hint.textContent = '⚠ ' + msg; hint.style.color = '#ef4444'; }
+    }
+    function setValid(input, hint, msg) {
+      input.classList.add('input-valid');
+      input.classList.remove('input-invalid');
+      if (hint) { hint.textContent = msg || '✔'; hint.style.color = '#22c55e'; }
+    }
+
+    // ── PHOTO ────────────────────────────────────────────────
     let photoFile = null;
     document.getElementById("s-photo").addEventListener("change", (e) => {
-      const res = handlePreview(e);
-      if(res && res.error) {
-        const al = document.getElementById("alert-box");
-        al.className = "alert alert-error show";
-        al.textContent = res.error;
-      } else {
-        photoFile = res;
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        showStatus('error', 'Photo must be less than 5MB');
+        return;
       }
+      photoFile = file;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = document.getElementById("photo-preview");
+        img.src = ev.target.result;
+        img.style.display = 'block';
+        document.getElementById("preview-container").style.display = 'block';
+      };
+      reader.readAsDataURL(file);
     });
 
+    // ── SUBMIT ───────────────────────────────────────────────
     window.submitData = async function() {
-      if(!currentUser || schoolFields.length === 0) return;
-      
-      const al = document.getElementById("alert-box");
-      const formData = {};
+      if (!currentUser || schoolFields.length === 0) return;
+      clearStatus();
 
+      const formData = {};
+      let valid = true;
+
+      // Validate all fields
       for (const f of schoolFields) {
-        const input = document.querySelector(`[name="${f.field_name}"]`);
-        if (f.required && (!input || !input.value.trim())) {
-           al.className = "alert alert-error show";
-           al.textContent = `Field "${f.field_name}" is mandatory.`;
-           return;
-        }
-        formData[f.field_name] = input ? input.value.trim() : "";
+        const input = document.getElementById(`field_${f.field_key}`);
+        const ok = validateField(f, input);
+        if (!ok) valid = false;
+        formData[f.field_key] = input ? input.value.trim() : "";
       }
 
-      if(!photoFile) {
-        al.className = "alert alert-error show";
-        al.textContent = "Photo upload is mandatory.";
+      if (!valid) {
+        showStatus('error', 'Please fix the highlighted fields before saving.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
+      if (!photoFile) {
+        showStatus('error', 'Please upload a student passport photo.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      // ── Duplicate admission_no check ─────────────────────
+      const admNo = formData['admission_no'] || "";
+      if (admNo) {
+        const { data: existing } = await supabase
+          .from('students')
+          .select('id')
+          .eq('school_id', currentUser.id)
+          .eq('admission_no', admNo)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          showStatus('error', `Admission No "${admNo}" already exists for your school. Please check.`);
+          const input = document.getElementById('field_admission_no');
+          if (input) {
+            const hint = document.getElementById('hint_admission_no');
+            setInvalid(input, hint, 'This admission number already exists');
+          }
+          return;
+        }
+      }
+
+      // ── Uploading ────────────────────────────────────────
       document.getElementById("upload-btn").disabled = true;
       document.getElementById("spinner").classList.add("show");
       document.getElementById("btn-text").style.display = "none";
-      
       const pw = document.getElementById("progress-wrap");
       const pf = document.getElementById("progress-fill");
       pw.style.display = "block";
+      showStatus('loading');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
       try {
-        // Upload photo logic directly to Cloudinary
         const photoURL = await uploadToCloudinary(photoFile, (percent) => {
           pf.style.width = percent + "%";
         });
 
-        // Insert dynamically matched Doc into Supabase Postgres
-        const { error: dbErr } = await supabase
+        const { data: student, error: dbErr } = await supabase
           .from('students')
-          .insert([
-            {
-              school_id: currentUser.id,
-              student_data: formData,
-              photo_url: photoURL
-            }
-          ]);
+          .insert({
+            school_id:    currentUser.id,
+            name:         formData["name"] || "Unknown",
+            class:        formData["class"] || "",
+            admission_no: formData["admission_no"] || "",
+            photo_url:    photoURL
+          })
+          .select()
+          .single();
           
-        if(dbErr) throw dbErr;
+        if (dbErr) throw dbErr;
 
-        al.className = "alert alert-success show";
-        al.textContent = "Successfully uploaded!";
-        setTimeout(() => al.className="alert", 3000);
+        // Save all dynamic field values
+        const fieldRows = schoolFields.map(f => ({
+          student_id: student.id,
+          field_id:   f.id,
+          value:      formData[f.field_key] || ""
+        })).filter(r => r.value);
         
+        if (fieldRows.length > 0) {
+          const { error: fvErr } = await supabase.from("student_field_values").insert(fieldRows);
+          if (fvErr) console.warn("Field values save warning:", fvErr.message);
+        }
+
+        showStatus('success', `✔ ${formData["name"] || "Student"} registered successfully!`);
         resetForm();
         photoFile = null;
         pf.style.width = "0%";
+        document.getElementById("photo-preview").style.display = 'none';
+        document.getElementById("preview-container").style.display = 'none';
+        document.querySelectorAll('.dynamic-input').forEach(i => {
+          i.value = "";
+          i.classList.remove('input-valid', 'input-invalid');
+        });
         loadRecent();
+
       } catch (err) {
-        al.className = "alert alert-error show";
-        al.textContent = "Error: " + err.message;
+        showStatus('error', 'Save failed: ' + err.message);
       } finally {
         document.getElementById("upload-btn").disabled = false;
         document.getElementById("spinner").classList.remove("show");
@@ -243,47 +411,102 @@
       }
     };
 
-    async function loadRecent() {
-      if(!currentUser) return;
+    // ── LOAD RECENT (paginated) ──────────────────────────────
+    window.loadRecent = async function() {
+      if (!currentUser) return;
       try {
-        const { data, error } = await supabase
+        const { data, error, count } = await supabase
           .from('students')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('school_id', currentUser.id)
-          .order('created_at', { ascending: false })
-          .limit(10);
+          .order('created_at', { ascending: false });
           
-        const list = document.getElementById("recent-list");
-        if(error || !data || data.length === 0) {
-           list.innerHTML = `<div class="empty-state"><p>No uploads yet.</p></div>`;
-           return;
-        }
-        list.innerHTML = data.map(d => {
-          return `<div class="record-item">
-            <img src="${d.photo_url}" class="td-photo">
-            <div>
-              <strong style="display:block">${d.name}</strong>
-              <span style="font-size:0.8rem;color:var(--text-muted)">${d.class} | Adm: ${d.admission_no}</span>
-            </div>
-            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${d.id}')"><i class="fas fa-trash"></i></button>
-          </div>`;
-        }).join('');
-      } catch(e) {}
-    }
-
-    window.deleteStudent = async function(id) {
-      if (!confirm("Are you sure you want to delete this student record?")) return;
-      try {
-        await supabase.from('students').delete().eq('id', id);
-        loadRecent();
-      } catch (err) {
-        alert("Delete failed: " + err.message);
+        if (error) throw error;
+        allRecords = data || [];
+        document.getElementById('total-count').textContent = allRecords.length;
+        currentPage = 1;
+        renderList(allRecords);
+      } catch(e) {
+        document.getElementById("recent-list").innerHTML =
+          `<div class="empty-state"><p>Failed to load records.</p></div>`;
       }
     };
 
-    setTimeout(() => { loadRecent(); }, 1000);
+    // ── SEARCH ───────────────────────────────────────────────
+    window.searchStudents = function() {
+      const q = document.getElementById('search-query').value.trim().toLowerCase();
+      if (!q) {
+        currentPage = 1;
+        renderList(allRecords);
+        return;
+      }
+      const filtered = allRecords.filter(d => {
+        const name = (d.name || '').toLowerCase();
+        const adm  = (d.admission_no || '').toLowerCase();
+        return name.includes(q) || adm.includes(q);
+      });
+      currentPage = 1;
+      renderList(filtered);
+    };
+
+    // ── RENDER LIST (paginated) ──────────────────────────────
+    function renderList(records) {
+      const list = document.getElementById("recent-list");
+      const pagination = document.getElementById("pagination");
+
+      if (!records || records.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>No students found.</p></div>';
+        pagination.innerHTML = '';
+        return;
+      }
+
+      const totalPages = Math.ceil(records.length / PAGE_SIZE);
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageData = records.slice(start, start + PAGE_SIZE);
+
+      list.innerHTML = pageData.map(d => {
+        const sName = d.name || 'Unknown';
+        const date  = d.created_at ? new Date(d.created_at).toLocaleDateString('en-IN') : '';
+        return `<div class="record-item">
+          <img src="${d.photo_url || ''}" class="td-photo" onerror="this.style.display='none'">
+          <div class="record-info">
+            <strong>${sName}</strong>
+            <span>${d.class ? 'Class ' + d.class : ''} ${d.admission_no ? '· Adm: ' + d.admission_no : ''} ${date ? '· ' + date : ''}</span>
+          </div>
+          <button class="btn btn-danger btn-sm" title="Delete" onclick="window.deleteStudent('${d.id}')"><i class="fas fa-trash"></i></button>
+        </div>`;
+      }).join('');
+
+      // Pagination buttons
+      if (totalPages <= 1) { pagination.innerHTML = ''; return; }
+      let btns = '';
+      for (let i = 1; i <= totalPages; i++) {
+        btns += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i}, '${JSON.stringify(records).replace(/'/g,"\\'")}')">${i}</button>`;
+      }
+      pagination.innerHTML = btns;
+    }
+
+    window.goPage = function(page, _) {
+      currentPage = page;
+      const q = document.getElementById('search-query').value.trim().toLowerCase();
+      const filtered = q
+        ? allRecords.filter(d => (d.name||'').toLowerCase().includes(q) || (d.admission_no||'').toLowerCase().includes(q))
+        : allRecords;
+      renderList(filtered);
+    };
+
+    // ── DELETE ───────────────────────────────────────────────
+    window.deleteStudent = async function(id) {
+      if (!confirm("Delete this student record? This cannot be undone.")) return;
+      try {
+        await supabase.from('student_field_values').delete().eq('student_id', id);
+        await supabase.from('students').delete().eq('id', id);
+        showStatus('success', 'Student deleted.');
+        loadRecent();
+      } catch (err) {
+        showStatus('error', 'Delete failed: ' + err.message);
+      }
+    };
   </script>
 </body>
 </html>
-
-
