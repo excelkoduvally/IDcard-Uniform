@@ -1,4 +1,4 @@
-﻿import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { SUPABASE_URL, SUPABASE_ANON, ADMIN_EMAIL } from "./supabase-config.js";
 
 // â”€â”€ Supabase Client (shared across all pages) â”€â”€
@@ -39,7 +39,8 @@ export async function guardPage(role) {
 }
 
 // â”€â”€ Logout â”€â”€
-window.handleLogout = async function () {
+window.handleLogout = async function (e) {
+  if (e) e.preventDefault();
   await supabase.auth.signOut();
   window.location.href = "login.html";
 };

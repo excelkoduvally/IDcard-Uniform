@@ -323,7 +323,10 @@ tbody td { padding: 0.85rem 1.2rem; color: var(--text); vertical-align: middle; 
 }
 .modal-title { margin-bottom: 1.5rem; font-size: 1.25rem; font-weight: 700; }
 
+.mobile-only { display: none; }
+
 @media (max-width: 900px) {
+  .mobile-only { display: block; }
   .app-layout { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: static; padding: 1rem 0; }
   .sidebar-menu { display: flex; overflow-x: auto; padding: 0 1rem; border-bottom: 1px solid var(--border); margin-bottom: 0; }
