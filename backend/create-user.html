@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,9 +9,10 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="../assets/css/style-app.css" />
 </head>
+
 <body>
   <div class="bg-mesh"></div>
-  
+
   <div class="app-layout">
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -21,14 +23,17 @@
       </div>
       <ul class="sidebar-menu">
         <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="admin-template.html"><i class="fas fa-hammer"></i> Template Builder</a></li>
         <li><a href="create-user.html" class="active"><i class="fas fa-user-plus"></i> Create User</a></li>
         <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
         <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
         <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
-        <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </li>
       </ul>
       <div class="sidebar-footer">
-        <button class="btn btn-outline btn-full" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        <button class="btn btn-outline btn-full" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i>
+          Logout</button>
       </div>
     </aside>
 
@@ -40,7 +45,7 @@
 
       <div class="content-area">
         <h1 class="page-title">Generate <span>School Account</span></h1>
-        
+
         <div class="card" style="max-width: 600px">
           <div id="alert-box" class="alert"></div>
 
@@ -83,7 +88,7 @@
     import { guardPage, supabase } from "../assets/js/auth.js";
     guardPage('admin');
 
-    window.createSchool = async function() {
+    window.createSchool = async function () {
       const schoolName = document.getElementById("sch-name").value.trim();
       const email = document.getElementById("sch-email").value.trim();
       const pass = document.getElementById("sch-pass").value;
@@ -91,7 +96,7 @@
       const addr = document.getElementById("sch-address").value.trim();
 
       const elAlert = document.getElementById("alert-box");
-      const showAlert = (msg, type="error") => { elAlert.className=`alert alert-${type} show`; elAlert.textContent = msg; };
+      const showAlert = (msg, type = "error") => { elAlert.className = `alert alert-${type} show`; elAlert.textContent = msg; };
 
       if (!schoolName || !email || !pass) { showAlert("Name, Email and Password are required."); return; }
 
@@ -114,15 +119,15 @@
         // Insert/Update metadata into 'schools' table with the real schoolName
         const { error: dbErr } = await supabase
           .from('schools')
-          .upsert({ 
-            id: authData.user.id, 
-            school_name: schoolName, 
-            email: email, 
-            phone: phone, 
-            address: addr, 
-            status: 'active' 
+          .upsert({
+            id: authData.user.id,
+            school_name: schoolName,
+            email: email,
+            phone: phone,
+            address: addr,
+            status: 'active'
           }, { onConflict: 'id' });
-        
+
         if (dbErr) throw dbErr;
 
         // Create default template for the new school
@@ -138,7 +143,7 @@
         ];
 
         const { error: templateErr } = await supabase.from("templates").insert(defaultFields);
-        
+
         if (templateErr) throw templateErr;
 
         showAlert("School account successfully created with real name and default template!", "success");
@@ -153,9 +158,5 @@
     };
   </script>
 </body>
+
 </html>
-
-
-
-
-

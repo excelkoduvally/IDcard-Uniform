@@ -60,26 +60,44 @@
 
           <div class="card" style="padding: 1.5rem; height: fit-content;">
             <h3 style="margin-bottom: 1rem;"><i class="fas fa-plus-circle"></i> Add New Field</h3>
+            
+            <div class="form-group">
+              <label>Apply field to:</label>
+              <select id="new-field-school" class="form-control">
+                <option value="">[ All Schools (Global) ]</option>
+              </select>
+            </div>
+
             <div class="form-group">
               <label>Field Name (e.g. Blood Group)</label>
               <input type="text" id="new-field-name" class="form-control" placeholder="Enter field name">
             </div>
+            
             <div class="form-group">
               <label>Field Key (e.g. blood_group)</label>
               <input type="text" id="new-field-key" class="form-control" placeholder="No spaces, lowercase">
             </div>
-            <div class="form-group">
-              <label>Input Type</label>
-              <select id="new-field-type" class="form-control">
-                <option value="text">Text</option>
-                <option value="number">Number</option>
-                <option value="date">Date</option>
-              </select>
+            
+            <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <label>Input Type</label>
+                <select id="new-field-type" class="form-control">
+                  <option value="text">Text</option>
+                  <option value="number">Number</option>
+                  <option value="date">Date</option>
+                </select>
+              </div>
+              <div>
+                <label>Display Order</label>
+                <input type="number" id="new-field-order" class="form-control" placeholder="100" value="100">
+              </div>
             </div>
-            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+            
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top:0.5rem;">
               <input type="checkbox" id="new-field-required" checked>
               <label for="new-field-required" style="margin:0">Is Required?</label>
             </div>
+            
             <button class="btn btn-primary btn-full" onclick="addField()">Add Field</button>
             <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem;">
               <i class="fas fa-info-circle"></i> Note: This requires a `student_fields` table in Supabase.
@@ -103,6 +121,24 @@
       setTimeout(() => el.className = "alert", 4000);
     };
 
+    let allSchools = [];
+
+    async function loadSchools() {
+       const { data, error } = await supabase.from("schools").select("id, school_name");
+       if (!error && data) {
+           allSchools = data;
+           const select = document.getElementById("new-field-school");
+           if (select) {
+               data.forEach(school => {
+                   const opt = document.createElement("option");
+                   opt.value = school.id;
+                   opt.textContent = school.school_name || "Unnamed School";
+                   select.appendChild(opt);
+               });
+           }
+       }
+    }
+
     // Initialize defaults if none exist
     async function initDefaults() {
       const { data, error } = await supabase.from('student_fields').select('id').limit(1);
@@ -112,14 +148,14 @@
       }
       if (data.length === 0) {
         const defaults = [
-          { field_name: "Name", field_key: "name", field_type: "text", required: true, active: true },
-          { field_name: "Admission No", field_key: "admission_no", field_type: "text", required: true, active: true },
-          { field_name: "Class", field_key: "class", field_type: "text", required: true, active: true },
-          { field_name: "Division", field_key: "division", field_type: "text", required: true, active: true },
-          { field_name: "Parent Name", field_key: "parent_name", field_type: "text", required: true, active: true },
-          { field_name: "House", field_key: "house", field_type: "text", required: true, active: true },
-          { field_name: "Place", field_key: "place", field_type: "text", required: true, active: true },
-          { field_name: "Phone Number", field_key: "phone", field_type: "text", required: true, active: true }
+          { field_name: "Name", field_key: "name", field_type: "text", required: true, active: true, locked: true, display_order: 10 },
+          { field_name: "Admission No", field_key: "admission_no", field_type: "text", required: true, active: true, locked: true, display_order: 20 },
+          { field_name: "Class", field_key: "class", field_type: "text", required: true, active: true, locked: true, display_order: 30 },
+          { field_name: "Division", field_key: "division", field_type: "text", required: true, active: true, locked: true, display_order: 40 },
+          { field_name: "Parent Name", field_key: "parent_name", field_type: "text", required: true, active: true, locked: false, display_order: 50 },
+          { field_name: "House", field_key: "house", field_type: "text", required: true, active: true, locked: false, display_order: 60 },
+          { field_name: "Place", field_key: "place", field_type: "text", required: true, active: true, locked: false, display_order: 70 },
+          { field_name: "Phone Number", field_key: "phone", field_type: "number", required: true, active: true, locked: false, display_order: 80 }
         ];
         await supabase.from('student_fields').insert(defaults);
       }
@@ -130,7 +166,8 @@
       try {
         const { data: fields, error } = await supabase
           .from("student_fields")
-          .select("*")
+          .select("*, schools(school_name)")
+          .order("display_order", { ascending: true })
           .order("created_at");
 
         if (error) throw error;
@@ -141,22 +178,27 @@
           return;
         }
 
-        list.innerHTML = fields.map(f => `
+        list.innerHTML = fields.map(f => {
+          let scope = f.school_id ? `<span class="badge badge-blue">Specific: ${f.schools?.school_name || 'Unknown'}</span>` : `<span class="badge badge-green">GLOBAL</span>`;
+          
+          return `
           <div class="field-card">
             <div class="field-info">
               <strong>${f.field_name} <span style="color:var(--text-muted); font-size:0.8rem">(${f.field_key})</span></strong>
-              <span>Type: ${f.field_type} | ${f.required ? '<b style="color:var(--accent)">Required</b>' : 'Optional'} | ${f.active ? '<b style="color:#22c55e">Active</b>' : '<b style="color:#ef4444">Inactive</b>'}</span>
+              <div style="margin: 0.4rem 0;">${scope}</div>
+              <span>Type: ${f.field_type} | ${f.required ? '<b style="color:var(--accent)">Required</b>' : 'Optional'} | ${f.active ? '<b style="color:#22c55e">Active</b>' : '<b style="color:#ef4444">Inactive</b>'} | Order: ${f.display_order || 0}</span>
             </div>
-            <div>
-              <button class="btn btn-outline btn-sm" onclick="toggleActive('${f.id}', ${!f.active})">
+            <div style="display:flex; gap:0.5rem; flex-direction:column;">
+              <button class="btn btn-outline btn-sm" onclick="toggleActive('${f.id}', ${!f.active})" ${f.locked ? 'disabled title="Locked core field"' : ''}>
                 ${f.active ? 'Deactivate' : 'Activate'}
               </button>
+              ${f.locked ? '<span style="font-size:0.75rem; color:var(--warning); text-align:center;"><i class="fas fa-lock"></i> Locked</span>' : ''}
             </div>
           </div>
-        `).join('');
+        `}).join('');
 
       } catch (err) {
-        document.getElementById("fields-list").innerHTML = '<div class="empty-state"><p>Error loading fields or table does not exist yet.</p></div>';
+        document.getElementById("fields-list").innerHTML = '<div class="empty-state"><p>Error loading fields. Did you run the SQL changes?</p></div>';
       }
     }
 
@@ -165,6 +207,8 @@
       const key = document.getElementById("new-field-key").value.trim();
       const type = document.getElementById("new-field-type").value;
       const required = document.getElementById("new-field-required").checked;
+      const schoolId = document.getElementById("new-field-school").value;
+      const order = document.getElementById("new-field-order").value;
 
       if (!name || !key) {
         showAlert("Both Name and Key are required.");
@@ -177,7 +221,10 @@
           field_key: key,
           field_type: type,
           required: required,
-          active: true
+          active: true,
+          locked: false,
+          display_order: parseInt(order) || 100,
+          school_id: schoolId || null
         }]);
 
         if (error) throw error;
@@ -185,9 +232,16 @@
         showAlert("Field added successfully!", "success");
         document.getElementById("new-field-name").value = "";
         document.getElementById("new-field-key").value = "";
+        document.getElementById("new-field-order").value = "";
         loadFields();
+        
+        // Log activity
+        await supabase.from("activity_logs").insert([{
+          action: "field_changed",
+          description: `Admin added field: ${name} (${schoolId ? 'Specific School' : 'Global'})`
+        }]);
       } catch (err) {
-        showAlert("Error: " + err.message);
+        showAlert("Error (Did you add the new columns in SQL?): " + err.message);
       }
     };
 
@@ -201,7 +255,7 @@
       }
     };
 
-    loadFields();
+    loadSchools().then(loadFields);
   </script>
 </body>
 </html>

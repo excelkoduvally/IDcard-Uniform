@@ -168,7 +168,9 @@
         const { data: fields, error } = await supabase
           .from("student_fields")
           .select("*")
+          .or(`school_id.is.null,school_id.eq.${currentUser.id}`)
           .eq("active", true)
+          .order("display_order", { ascending: true })
           .order("created_at");
           
         if (error) throw error;

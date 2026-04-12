@@ -1,10 +1,6 @@
 import { supabase } from './auth.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
-    // Select the desktop and mobile login buttons using their new IDs
-    const desktopBtn = document.getElementById('accountBtn');
-    const mobileBtn = document.getElementById('mobileLoginBtn');
-
     try {
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -17,17 +13,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 dashLink = "../backend/admin.html";
             }
 
-            // Update Desktop menu
-            if(desktopBtn) {
-                desktopBtn.href = dashLink;
-                desktopBtn.innerHTML = '<i class="fas fa-user-circle"></i> Account';
-            }
-
-            // Update Mobile menu
-            if(mobileBtn) {
-                mobileBtn.href = dashLink;
-                mobileBtn.innerHTML = '<i class="fas fa-user-circle"></i> Account';
-            }
+            // Find EVERY link pointing to the login page (mobile, desktop, sticky menus, etc.)
+            const loginLinks = document.querySelectorAll('a[href*="login.html"]');
+            
+            loginLinks.forEach(btn => {
+                btn.href = dashLink;
+                btn.innerHTML = '<i class="fas fa-user-circle"></i> Account';
+            });
         }
     } catch (err) {
         console.error("Auth check failed:", err);
