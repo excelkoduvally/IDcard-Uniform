@@ -205,15 +205,8 @@
           <span>Excel <b>Admin</b></span>
         </div>
       </div>
-      <ul class="sidebar-menu">
-        <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-        <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create School</a></li>
-        <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
-        <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
-        <li><a href="admin-fields.html"><i class="fas fa-list-alt"></i> Student Fields</a></li>
-        <li><a href="id-preview.html" class="active"><i class="fas fa-id-card"></i> ID Preview</a></li>
-        <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
-        <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      <ul class="sidebar-menu" id="dynamic-sidebar">
+        <!-- Injected via JS -->
       </ul>
       <div class="sidebar-footer" style="margin-top:auto">
         <button class="btn btn-outline btn-full" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</button>
@@ -279,6 +272,38 @@
     async function init() {
         currentUser = await guardPage();
         if (!currentUser) return;
+        
+        // Render dynamic sidebar
+        const sidebar = document.getElementById('dynamic-sidebar');
+        const isAdmin = currentUser.email === 'excelkdly@gmail.com';
+        
+        if (isAdmin) {
+          sidebar.innerHTML = `
+            <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+            <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create School</a></li>
+            <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
+            <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
+            <li><a href="admin-fields.html"><i class="fas fa-list-alt"></i> Student Fields</a></li>
+            <li><a href="id-preview.html" class="active"><i class="fas fa-id-card"></i> ID Preview</a></li>
+            <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
+            <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+          `;
+          document.querySelector('.user-badge').innerHTML = '<i class="fas fa-shield-alt"></i> Admin Panel';
+          document.querySelector('.sidebar-logo span b').textContent = 'Admin';
+        } else {
+          sidebar.innerHTML = `
+            <li><a href="upload.html"><i class="fas fa-user-plus"></i> Add Student</a></li>
+            <li><a href="id-preview.html" class="active"><i class="fas fa-id-card"></i> ID Preview</a></li>
+            <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
+            <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+          `;
+          document.querySelector('.user-badge').innerHTML = '<i class="fas fa-school"></i> School Portal';
+          document.querySelector('.sidebar-logo span b').textContent = 'Portal';
+          
+          // Hide school filter for schools
+          document.getElementById('school-filter').style.display = 'none';
+        }
+        
         loadSchools();
     }
 
