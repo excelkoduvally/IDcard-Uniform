@@ -138,9 +138,26 @@
       display: flex;
     }
 
+    .resize-handle {
+      position: absolute;
+      right: -5px;
+      bottom: -5px;
+      width: 12px;
+      height: 12px;
+      background: var(--primary);
+      border-radius: 50%;
+      cursor: nwse-resize;
+      display: none;
+      z-index: 20;
+    }
+
+    .draggable.selected .resize-handle {
+      display: block;
+    }
+
     .drag-photo {
-      width: 80px;
-      height: 80px;
+      width: 70px;
+      height: 90px;
       border: 2px solid #ccc;
       background: #eee;
       display: flex;
@@ -148,7 +165,7 @@
       justify-content: center;
       color: #999;
       font-size: 0.7rem;
-      border-radius: 0; /* Default square, can be customized */
+      border-radius: 0; 
     }
 
     .drag-text {
@@ -259,6 +276,14 @@
                 <div class="prop-row" id="prop-radius-row" style="display:none;">
                   <label>Roundness (%)</label>
                   <input type="number" id="prop-radius" style="width:60px" onchange="updateProp('borderRadius', this.value + '%')">
+                </div>
+                <div class="prop-row" id="prop-width-row" style="display:none;">
+                  <label>Width (px)</label>
+                  <input type="number" id="prop-width" style="width:60px" onchange="updateProp('width', this.value + 'px')">
+                </div>
+                <div class="prop-row" id="prop-height-row" style="display:none;">
+                  <label>Height (px)</label>
+                  <input type="number" id="prop-height" style="width:60px" onchange="updateProp('height', this.value + 'px')">
                 </div>
               </div>
             </div>
@@ -412,7 +437,15 @@
         el.classList.add('drag-photo');
         el.dataset.type = 'photo';
         el.innerHTML += 'Photo <br/>{{photo}}';
-        el.style.borderRadius = '50%'; // default round
+        el.style.borderRadius = '0%'; // default rectangle
+        el.style.width = '70px';
+        el.style.height = '90px';
+        
+        // Add resize handle
+        const resizer = document.createElement('div');
+        resizer.className = 'resize-handle';
+        el.appendChild(resizer);
+        makeResizable(el, resizer);
       } else {
         const span = document.createElement('span');
         span.className = 'drag-text';
@@ -458,6 +491,39 @@
       }
     }
 
+    function makeResizable(el, resizer) {
+      let startX, startY, startWidth, startHeight;
+      
+      resizer.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent drag from firing
+        
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = parseInt(document.defaultView.getComputedStyle(el).width, 10);
+        startHeight = parseInt(document.defaultView.getComputedStyle(el).height, 10);
+        
+        document.addEventListener('mousemove', resizeDrag);
+        document.addEventListener('mouseup', stopResize);
+      });
+      
+      function resizeDrag(e) {
+        el.style.width = (startWidth + e.clientX - startX) + 'px';
+        el.style.height = (startHeight + e.clientY - startY) + 'px';
+        
+        // Update property inputs live if panel is open
+        if (selectedElement === el) {
+          document.getElementById('prop-width').value = parseInt(el.style.width);
+          document.getElementById('prop-height').value = parseInt(el.style.height);
+        }
+      }
+      
+      function stopResize() {
+        document.removeEventListener('mousemove', resizeDrag);
+        document.removeEventListener('mouseup', stopResize);
+      }
+    }
+
     function selectElement(el) {
       deselectAll();
       selectedElement = el;
@@ -469,9 +535,16 @@
       // Load properties
       if (el.dataset.type === 'photo') {
         document.getElementById('prop-radius-row').style.display = 'flex';
+        document.getElementById('prop-width-row').style.display = 'flex';
+        document.getElementById('prop-height-row').style.display = 'flex';
+        
         document.getElementById('prop-radius').value = parseInt(el.style.borderRadius) || 0;
+        document.getElementById('prop-width').value = parseInt(el.style.width) || 70;
+        document.getElementById('prop-height').value = parseInt(el.style.height) || 90;
       } else {
         document.getElementById('prop-radius-row').style.display = 'none';
+        document.getElementById('prop-width-row').style.display = 'none';
+        document.getElementById('prop-height-row').style.display = 'none';
         const span = el.querySelector('span');
         document.getElementById('prop-size').value = parseInt(span.style.fontSize) || 16;
         document.getElementById('prop-weight').value = span.style.fontWeight || 'normal';
@@ -499,6 +572,8 @@
       if (!selectedElement) return;
       if (selectedElement.dataset.type === 'photo') {
         if (prop === 'borderRadius') selectedElement.style.borderRadius = val;
+        if (prop === 'width') selectedElement.style.width = val;
+        if (prop === 'height') selectedElement.style.height = val;
       } else {
         const span = selectedElement.querySelector('span');
         if (span) span.style[prop] = val;
@@ -544,6 +619,12 @@
            el.style.borderRadius = srcEl.style.borderRadius;
            el.style.width = srcEl.style.width;
            el.style.height = srcEl.style.height;
+           
+           // Add resize handle
+           const resizer = document.createElement('div');
+           resizer.className = 'resize-handle';
+           el.appendChild(resizer);
+           makeResizable(el, resizer);
          } else {
            const span = document.createElement('span');
            span.className = 'drag-text';
