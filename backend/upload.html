@@ -365,15 +365,31 @@
           pf.style.width = percent + "%";
         });
 
+        const insertPayload = {
+          school_id:    currentUser.id,
+          name:         formData["name"] || "Unknown",
+          class:        formData["class"] || "",
+          admission_no: formData["admission_no"] || "",
+          photo_url:    photoURL,
+          student_data: formData // Save entire custom form fields payload into JSONB column!
+        };
+
+        // Explicitly map designated table columns if they exist in the submitted form
+        if (formData["parent_phone"]) {
+          insertPayload.parent_phone = formData["parent_phone"];
+        } else if (formData["phone"]) {
+          insertPayload.parent_phone = formData["phone"];
+        }
+
+        if (formData["dob"]) {
+          insertPayload.dob = formData["dob"];
+        } else if (formData["date_of_birth"]) {
+          insertPayload.dob = formData["date_of_birth"];
+        }
+
         const { data: student, error: dbErr } = await supabase
           .from('students')
-          .insert({
-            school_id:    currentUser.id,
-            name:         formData["name"] || "Unknown",
-            class:        formData["class"] || "",
-            admission_no: formData["admission_no"] || "",
-            photo_url:    photoURL
-          })
+          .insert(insertPayload)
           .select()
           .single();
           

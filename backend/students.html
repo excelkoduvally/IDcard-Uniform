@@ -178,6 +178,20 @@
                   }
               });
           }
+
+          // Merge fallbacks for legacy/direct table columns (e.g. parent_phone, dob)
+          if (s.parent_phone) {
+              s.student_data["Phone Number"] = s.parent_phone;
+              s.student_data["phone"] = s.parent_phone;
+              s.student_data["Parent Phone"] = s.parent_phone;
+              s.student_data["parent_phone"] = s.parent_phone;
+          }
+          if (s.dob) {
+              s.student_data["Date of Birth"] = s.dob;
+              s.student_data["dob"] = s.dob;
+              s.student_data["DOB"] = s.dob;
+              s.student_data["Date"] = s.dob;
+          }
           
           let stuClass = s.class || s.student_data.Class || s.student_data.class || null;
           if (s.school_email) schoolsSet.add(s.school_email);
