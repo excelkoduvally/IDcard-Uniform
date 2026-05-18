@@ -44,7 +44,8 @@ async function loadStorageStats() {
     const { count: photoCount, error: photoErr } = await supabase
       .from("students")
       .select("id", { count: 'exact', head: true })
-      .not("photo_url", "is", null);
+      .not("photo_url", "is", null)
+      .neq("photo_url", "");
     if (photoErr) throw photoErr;
 
     statPhotos.textContent = photoCount || 0;
