@@ -141,7 +141,7 @@
             globalFields = [];
             if (fieldsData) {
                 fieldsData.forEach(f => {
-                    globalFields.push(f.field_name || f.field_key);
+                    globalFields.push({ name: f.field_name || f.field_key, key: f.field_key });
                 });
             }
         } catch(e) {
@@ -166,36 +166,36 @@
               s.student_data = {};
           }
           
-          // Merge custom fields from the joined relation (use field_name as canonical key)
+          // Merge custom fields from the joined relation (use field_key as canonical key)
           if (s.student_field_values && s.student_field_values.length > 0) {
               s.student_field_values.forEach(fv => {
                   if (fv.student_fields) {
+                      const fKey = fv.student_fields.field_key;
                       const fName = fv.student_fields.field_name || fv.student_fields.field_key;
-                      s.student_data[fName] = fv.value;
-                      if ((fv.student_fields.field_key === 'class' || fName.toLowerCase() === 'class') && !s.class) {
+                      s.student_data[fKey] = fv.value;
+                      if ((fKey === 'class' || fName.toLowerCase() === 'class') && !s.class) {
                           s.class = fv.value;
                       }
                   }
               });
           }
 
-          // Merge legacy direct-column values under the EXACT globalField name to avoid duplicates
-          // Find the canonical field name for phone and dob from globalFields list
+          // Merge legacy direct-column values under the EXACT globalField key to avoid duplicates
           if (s.parent_phone || s.dob) {
-              const phoneFieldName = globalFields.find(f => {
-                  const fl = f.toLowerCase();
+              const phoneField = globalFields.find(f => {
+                  const fl = f.name.toLowerCase();
                   return fl === 'phone' || fl === 'phone number' || fl === 'parent phone' || fl === 'parent_phone';
               });
-              const dobFieldName = globalFields.find(f => {
-                  const fl = f.toLowerCase();
+              const dobField = globalFields.find(f => {
+                  const fl = f.name.toLowerCase();
                   return fl === 'dob' || fl === 'date of birth' || fl === 'date_of_birth' || fl === 'birth date';
               });
 
-              if (s.parent_phone && phoneFieldName && !s.student_data[phoneFieldName]) {
-                  s.student_data[phoneFieldName] = s.parent_phone;
+              if (s.parent_phone && phoneField && !s.student_data[phoneField.key]) {
+                  s.student_data[phoneField.key] = s.parent_phone;
               }
-              if (s.dob && dobFieldName && !s.student_data[dobFieldName]) {
-                  s.student_data[dobFieldName] = s.dob;
+              if (s.dob && dobField && !s.student_data[dobField.key]) {
+                  s.student_data[dobField.key] = s.dob;
               }
           }
           
@@ -272,9 +272,8 @@
       }
 
       // 1. Build column headers ONLY from globalFields (single source of truth)
-      //    This prevents duplicate columns from student_data key variations.
       const customHeadersArray = globalFields.filter(f => {
-          const fl = f.toLowerCase();
+          const fl = f.name.toLowerCase();
           return fl !== 'name' && fl !== 'class';
       });
 
@@ -286,7 +285,7 @@
         <th>School</th>
         <th>Date</th>`;
       customHeadersArray.forEach(h => {
-        theadHTML += `<th>${h}</th>`;
+        theadHTML += `<th>${h.name}</th>`;
       });
       theadHTML += `<th>Action</th></tr>`;
       thead.innerHTML = theadHTML;
@@ -307,7 +306,7 @@
           
         // Inject custom cell data
         customHeadersArray.forEach(h => {
-           const val = (s.student_data && s.student_data[h]) ? s.student_data[h] : '-';
+           const val = (s.student_data && s.student_data[h.key]) ? s.student_data[h.key] : '-';
            rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${val}</td>`;
         });
           
@@ -391,12 +390,11 @@
         const worksheet = workbook.addWorksheet("Students");
 
         // Build headers from globalFields ONLY (single source of truth — prevents duplicate columns)
-        const headers = ["Photo", "Name", "Class", "School", "Date_Added",
-          ...globalFields.filter(f => {
-            const fl = f.toLowerCase();
+        const customFields = globalFields.filter(f => {
+            const fl = f.name.toLowerCase();
             return fl !== 'name' && fl !== 'class';
-          })
-        ];
+        });
+        const headers = ["Photo", "Name", "Class", "School", "Date_Added", ...customFields.map(f => f.name)];
         
         worksheet.columns = headers.map(h => ({
             header: h, 
@@ -412,11 +410,10 @@
             const rowData = {};
             if (s.name) rowData.Name = s.name;
             if (s.class) rowData.Class = s.class;
-            if (s.student_data && typeof s.student_data === 'object') {
-              for (const key in s.student_data) {
-                rowData[key] = s.student_data[key];
-              }
-            }
+            
+            customFields.forEach(f => {
+                rowData[f.name] = (s.student_data && s.student_data[f.key]) ? s.student_data[f.key] : '-';
+            });
             rowData.School = s.school_name || "Unknown";
             rowData.Date_Added = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
             
