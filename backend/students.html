@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,20 +11,78 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <style>
-    .school-filter-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
-    .pill { padding: 0.4rem 1rem; border-radius: 100px; font-size: 0.8rem; font-weight: 600; border: 1.5px solid var(--border); color: var(--text-muted); cursor: pointer; transition: all 0.2s; background: transparent; }
-    .pill.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .pill:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
-    .table-section { background: var(--card-bg); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .table-section-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
-    .search-input { position: relative; }
-    .search-input i { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; pointer-events: none; }
-    .search-input input { padding-left: 2.2rem; width: 220px; }
+    .school-filter-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .pill {
+      padding: 0.4rem 1rem;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+    }
+
+    .pill.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .pill:hover:not(.active) {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .table-section {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .table-section-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .search-input {
+      position: relative;
+    }
+
+    .search-input i {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+
+    .search-input input {
+      padding-left: 2.2rem;
+      width: 220px;
+    }
   </style>
 </head>
+
 <body>
   <div class="bg-mesh"></div>
-  
+
   <div class="app-layout">
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -38,10 +97,12 @@
         <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
         <li><a href="students.html" class="active"><i class="fas fa-users"></i> Students</a></li>
         <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
-        <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </li>
       </ul>
       <div class="sidebar-footer">
-        <button class="btn btn-outline btn-full" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        <button class="btn btn-outline btn-full" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i>
+          Logout</button>
       </div>
     </aside>
 
@@ -53,7 +114,7 @@
 
       <div class="content-area">
         <h1 class="page-title">Uploaded <span>Students</span></h1>
-        
+
         <div class="filter-bar">
           <div class="form-group">
             <label>Filter by School</label>
@@ -71,12 +132,15 @@
             <label>Search Name</label>
             <div class="search-input">
               <i class="fas fa-search"></i>
-              <input type="text" id="search-input" class="form-control" placeholder="Type name..." oninput="applyFilters()" />
+              <input type="text" id="search-input" class="form-control" placeholder="Type name..."
+                oninput="applyFilters()" />
             </div>
           </div>
           <div class="actions">
-            <button class="btn btn-success" id="btn-export-excel" onclick="downloadExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
-            <button class="btn btn-info" id="btn-export-photos" onclick="downloadPhotos()"><i class="fas fa-file-archive"></i> Download Photos</button>
+            <button class="btn btn-success" id="btn-export-excel" onclick="downloadExcel()"><i
+                class="fas fa-file-excel"></i> Export Excel</button>
+            <button class="btn btn-info" id="btn-export-photos" onclick="downloadPhotos()"><i
+                class="fas fa-file-archive"></i> Download Photos</button>
             <button class="btn btn-outline" onclick="loadStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
           </div>
         </div>
@@ -101,7 +165,13 @@
                 </tr>
               </thead>
               <tbody id="table-body">
-                <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading database...</p></div></td></tr>
+                <tr>
+                  <td colspan="6">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>
+                      <p>Loading database...</p>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -122,10 +192,10 @@
     let classesList = new Set();
     let globalFields = [];
 
-    window.loadStudents = async function() {
+    window.loadStudents = async function () {
       const tbody = document.getElementById("table-body");
       tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading records...</p></div></td></tr>`;
-      
+
       try {
         const { data, error } = await supabase
           .from('students')
@@ -136,16 +206,16 @@
         allStudents = data || [];
 
         try {
-            // Fetch fields to build global column headers
-            const { data: fieldsData } = await supabase.from('student_fields').select('id, field_name, field_key');
-            globalFields = [];
-            if (fieldsData) {
-                fieldsData.forEach(f => {
-                    globalFields.push({ name: f.field_name || f.field_key, key: f.field_key });
-                });
-            }
-        } catch(e) {
-            console.warn("Could not load global fields", e);
+          // Fetch fields to build global column headers
+          const { data: fieldsData } = await supabase.from('student_fields').select('id, field_name, field_key');
+          globalFields = [];
+          if (fieldsData) {
+            fieldsData.forEach(f => {
+              globalFields.push({ name: f.field_name || f.field_key, key: f.field_key });
+            });
+          }
+        } catch (e) {
+          console.warn("Could not load global fields", e);
         }
 
         const schoolsSet = new Set();
@@ -153,52 +223,52 @@
         allStudents.forEach(s => {
           s.school_email = s.schools?.email || 'Unknown';
           s.school_name = s.schools?.school_name || 'Unknown';
-          
+
           // Force parse student_data in case Supabase returns it as a string
           if (typeof s.student_data === 'string') {
-              try {
-                  s.student_data = JSON.parse(s.student_data);
-              } catch(e) {
-                  s.student_data = {};
-              }
+            try {
+              s.student_data = JSON.parse(s.student_data);
+            } catch (e) {
+              s.student_data = {};
+            }
           }
           if (!s.student_data || typeof s.student_data !== 'object') {
-              s.student_data = {};
+            s.student_data = {};
           }
-          
+
           // Merge custom fields from the joined relation (use field_key as canonical key)
           if (s.student_field_values && s.student_field_values.length > 0) {
-              s.student_field_values.forEach(fv => {
-                  if (fv.student_fields) {
-                      const fKey = fv.student_fields.field_key;
-                      const fName = fv.student_fields.field_name || fv.student_fields.field_key;
-                      s.student_data[fKey] = fv.value;
-                      if ((fKey === 'class' || fName.toLowerCase() === 'class') && !s.class) {
-                          s.class = fv.value;
-                      }
-                  }
-              });
+            s.student_field_values.forEach(fv => {
+              if (fv.student_fields) {
+                const fKey = fv.student_fields.field_key;
+                const fName = fv.student_fields.field_name || fv.student_fields.field_key;
+                s.student_data[fKey] = fv.value;
+                if ((fKey === 'class' || fName.toLowerCase() === 'class') && !s.class) {
+                  s.class = fv.value;
+                }
+              }
+            });
           }
 
           // Merge legacy direct-column values under the EXACT globalField key to avoid duplicates
           if (s.parent_phone || s.dob) {
-              const phoneField = globalFields.find(f => {
-                  const fl = f.name.toLowerCase();
-                  return fl === 'phone' || fl === 'phone number' || fl === 'parent phone' || fl === 'parent_phone';
-              });
-              const dobField = globalFields.find(f => {
-                  const fl = f.name.toLowerCase();
-                  return fl === 'dob' || fl === 'date of birth' || fl === 'date_of_birth' || fl === 'birth date';
-              });
+            const phoneField = globalFields.find(f => {
+              const fl = f.name.toLowerCase();
+              return fl === 'phone' || fl === 'phone number' || fl === 'parent phone' || fl === 'parent_phone';
+            });
+            const dobField = globalFields.find(f => {
+              const fl = f.name.toLowerCase();
+              return fl === 'dob' || fl === 'date of birth' || fl === 'date_of_birth' || fl === 'birth date';
+            });
 
-              if (s.parent_phone && phoneField && !s.student_data[phoneField.key]) {
-                  s.student_data[phoneField.key] = s.parent_phone;
-              }
-              if (s.dob && dobField && !s.student_data[dobField.key]) {
-                  s.student_data[dobField.key] = s.dob;
-              }
+            if (s.parent_phone && phoneField && !s.student_data[phoneField.key]) {
+              s.student_data[phoneField.key] = s.parent_phone;
+            }
+            if (s.dob && dobField && !s.student_data[dobField.key]) {
+              s.student_data[dobField.key] = s.dob;
+            }
           }
-          
+
           let stuClass = s.class || s.student_data.Class || s.student_data.class || null;
           if (s.school_email) schoolsSet.add(s.school_email);
           if (stuClass) classesList.add(stuClass);
@@ -233,12 +303,12 @@
 
         applyFilters();
 
-      } catch(err) {
+      } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
       }
     };
 
-    window.applyFilters = function() {
+    window.applyFilters = function () {
       const sch = document.getElementById("school-filter").value;
       const cls = document.getElementById("class-filter").value;
       const search = document.getElementById("search-input").value.toLowerCase();
@@ -247,16 +317,16 @@
         let n = s.name || (s.student_data ? s.student_data.Name : "");
         let c = s.class || (s.student_data ? s.student_data.Class : "");
         return (!sch || s.school_email === sch) &&
-               (!cls || c === cls) &&
-               (!search || n.toLowerCase().includes(search));
+          (!cls || c === cls) &&
+          (!search || n.toLowerCase().includes(search));
       });
 
       document.querySelectorAll(".pill").forEach(p => {
-        p.classList.toggle("active", (!sch && p.textContent==="All") || (sch && p.textContent===sch.split("@")[0].toUpperCase()));
+        p.classList.toggle("active", (!sch && p.textContent === "All") || (sch && p.textContent === sch.split("@")[0].toUpperCase()));
       });
 
       document.getElementById("record-count").textContent = `${filteredStudents.length} Records`;
-      
+
 
 
       renderTable();
@@ -265,7 +335,7 @@
     function renderTable() {
       const thead = document.querySelector("#students-table thead");
       const tbody = document.getElementById("table-body");
-      
+
       if (filteredStudents.length === 0) {
         tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><p>No records match filters.</p></div></td></tr>`;
         return;
@@ -273,8 +343,8 @@
 
       // 1. Build column headers ONLY from globalFields (single source of truth)
       const customHeadersArray = globalFields.filter(f => {
-          const fl = f.name.toLowerCase();
-          return fl !== 'name' && fl !== 'class';
+        const fl = f.name.toLowerCase();
+        return fl !== 'name' && fl !== 'class';
       });
 
       // 2. Dynamically build the table header
@@ -291,50 +361,54 @@
       thead.innerHTML = theadHTML;
 
       // 3. Render rows with standard + dynamic columns
-      tbody.innerHTML = filteredStudents.map(s => {
+      tbody.innerHTML = filteredStudents.map((s, index) => {
+        if (index === 0) {
+           console.log("DEBUG: First rendered student object:", JSON.parse(JSON.stringify(s)));
+           console.log("DEBUG: Global Fields loaded:", globalFields);
+        }
         let n = s.name || (s.student_data ? s.student_data.Name : "No Name");
         let c = s.class || (s.student_data ? s.student_data.Class : "N/A");
         const photo = s.photo_url ? `<img src="${s.photo_url}" class="td-photo">` : `<div class="td-photo-placeholder"><i class="fas fa-user"></i></div>`;
         const dt = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
-        
+
         let rowHTML = `<tr>
           <td>${photo}</td>
           <td><strong>${n}</strong></td>
           <td><span class="badge badge-blue">${c}</span></td>
-          <td style="color:var(--text-muted)">${(s.school_email||"").split("@")[0].toUpperCase()}</td>
+          <td style="color:var(--text-muted)">${(s.school_email || "").split("@")[0].toUpperCase()}</td>
           <td>${dt}</td>`;
-          
+
         // Inject custom cell data
         customHeadersArray.forEach(h => {
-           const val = (s.student_data && s.student_data[h.key]) ? s.student_data[h.key] : '-';
-           rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${val}</td>`;
+          const val = (s.student_data && s.student_data[h.key]) ? s.student_data[h.key] : '-';
+          rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${val}</td>`;
         });
-          
+
         rowHTML += `<td>
             <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')"><i class="fas fa-trash"></i></button>
           </td>
         </tr>`;
-        
+
         return rowHTML;
       }).join('');
     }
 
-    window.deleteStudent = async function(id) {
-      if(!confirm("Are you sure you want to delete this specific student record?")) return;
+    window.deleteStudent = async function (id) {
+      if (!confirm("Are you sure you want to delete this specific student record?")) return;
       try {
         await supabase.from('students').delete().eq('id', id);
-        loadStudents(); 
-      } catch(err) {
+        loadStudents();
+      } catch (err) {
         alert("Failed to delete: " + err.message);
       }
     };
 
-    window.downloadPhotos = async function() {
-      if(filteredStudents.length === 0) {
+    window.downloadPhotos = async function () {
+      if (filteredStudents.length === 0) {
         alert("No students to download photos for.");
         return;
       }
-      
+
       const btn = document.getElementById("btn-export-photos");
       const btnText = btn.innerHTML;
       btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Zipping...`;
@@ -343,22 +417,22 @@
       try {
         const zip = new window.JSZip();
 
-        for(const student of filteredStudents) {
-          if(!student.photo_url) continue;
+        for (const student of filteredStudents) {
+          if (!student.photo_url) continue;
 
           let n = student.name || (student.student_data ? student.student_data.Name : "Student");
-          const filename = n.replace(/\s+/g,"_") + ".jpg";
+          const filename = n.replace(/\s+/g, "_") + ".jpg";
 
           try {
             const response = await fetch(student.photo_url);
             const blob = await response.blob();
             zip.file(filename, blob);
-          } catch(err) {
+          } catch (err) {
             console.error("Failed to fetch photo for", n, err);
           }
         }
 
-        const content = await zip.generateAsync({type:"blob"});
+        const content = await zip.generateAsync({ type: "blob" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(content);
 
@@ -366,8 +440,8 @@
         const typeStr = sch ? sch.split('@')[0].toUpperCase() : "AllData";
         link.download = `Photos_${typeStr}.zip`;
         link.click();
-        
-      } catch(err) {
+
+      } catch (err) {
         alert("Error creating ZIP: " + err.message);
       } finally {
         btn.innerHTML = btnText;
@@ -375,12 +449,12 @@
       }
     };
 
-    window.downloadExcel = async function() {
-      if(filteredStudents.length === 0) {
+    window.downloadExcel = async function () {
+      if (filteredStudents.length === 0) {
         alert("No students to export.");
         return;
       }
-      
+
       const btn = document.getElementById("btn-export-excel");
       const btnText = btn.innerHTML;
       btn.disabled = true;
@@ -391,79 +465,79 @@
 
         // Build headers from globalFields ONLY (single source of truth — prevents duplicate columns)
         const customFields = globalFields.filter(f => {
-            const fl = f.name.toLowerCase();
-            return fl !== 'name' && fl !== 'class';
+          const fl = f.name.toLowerCase();
+          return fl !== 'name' && fl !== 'class';
         });
         const headers = ["Photo", "Name", "Class", "School", "Date_Added", ...customFields.map(f => f.name)];
-        
+
         worksheet.columns = headers.map(h => ({
-            header: h, 
-            key: h, 
-            width: h === 'Photo' ? 12 : 20 
+          header: h,
+          key: h,
+          width: h === 'Photo' ? 12 : 20
         }));
 
         for (let i = 0; i < filteredStudents.length; i++) {
-            const s = filteredStudents[i];
-            
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing ${i+1}/${filteredStudents.length}...`;
-            
-            const rowData = {};
-            if (s.name) rowData.Name = s.name;
-            if (s.class) rowData.Class = s.class;
-            
-            customFields.forEach(f => {
-                rowData[f.name] = (s.student_data && s.student_data[f.key]) ? s.student_data[f.key] : '-';
-            });
-            rowData.School = s.school_name || "Unknown";
-            rowData.Date_Added = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
-            
-            const row = worksheet.addRow(rowData);
-            row.height = 65; 
+          const s = filteredStudents[i];
 
-            // Embed Image
-            if (s.photo_url) {
-                try {
-                    const response = await fetch(s.photo_url);
-                    const blob = await response.blob();
-                    
-                    const base64 = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.readAsDataURL(blob);
-                    });
-                    
-                    const imageId = workbook.addImage({
-                        base64: base64,
-                        extension: s.photo_url.toLowerCase().endsWith('png') ? 'png' : 'jpeg',
-                    });
-                    
-                    // Center the image inside the cell
-                    worksheet.addImage(imageId, {
-                        tl: { col: 0.1, row: row.number - 0.9 },
-                        ext: { width: 60, height: 60 },
-                        editAs: 'oneCell'
-                    });
-                } catch(e) {
-                    console.error("Failed to fetch photo for", s.name, e);
-                }
+          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing ${i + 1}/${filteredStudents.length}...`;
+
+          const rowData = {};
+          if (s.name) rowData.Name = s.name;
+          if (s.class) rowData.Class = s.class;
+
+          customFields.forEach(f => {
+            rowData[f.name] = (s.student_data && s.student_data[f.key]) ? s.student_data[f.key] : '-';
+          });
+          rowData.School = s.school_name || "Unknown";
+          rowData.Date_Added = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
+
+          const row = worksheet.addRow(rowData);
+          row.height = 65;
+
+          // Embed Image
+          if (s.photo_url) {
+            try {
+              const response = await fetch(s.photo_url);
+              const blob = await response.blob();
+
+              const base64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+              });
+
+              const imageId = workbook.addImage({
+                base64: base64,
+                extension: s.photo_url.toLowerCase().endsWith('png') ? 'png' : 'jpeg',
+              });
+
+              // Center the image inside the cell
+              worksheet.addImage(imageId, {
+                tl: { col: 0.1, row: row.number - 0.9 },
+                ext: { width: 60, height: 60 },
+                editAs: 'oneCell'
+              });
+            } catch (e) {
+              console.error("Failed to fetch photo for", s.name, e);
             }
+          }
         }
 
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving...`;
-        
+
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        
+
         const sch = document.getElementById("school-filter").value;
         const typeStr = sch ? sch.split('@')[0].toUpperCase() : "All_Schools";
-        
+
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = `Students_With_Photos_${typeStr}.xlsx`;
         a.click();
         window.URL.revokeObjectURL(url);
-        
+
       } catch (err) {
         alert("Error exporting Excel: " + err.message);
         console.error(err);
@@ -476,9 +550,5 @@
     loadStudents();
   </script>
 </body>
+
 </html>
-
-
-
-
-
