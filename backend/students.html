@@ -169,7 +169,17 @@
           s.school_email = s.schools?.email || 'Unknown';
           s.school_name = s.schools?.school_name || 'Unknown';
           
-          if (!s.student_data) s.student_data = {};
+          // Force parse student_data in case Supabase returns it as a string
+          if (typeof s.student_data === 'string') {
+              try {
+                  s.student_data = JSON.parse(s.student_data);
+              } catch(e) {
+                  s.student_data = {};
+              }
+          }
+          if (!s.student_data || typeof s.student_data !== 'object') {
+              s.student_data = {};
+          }
           
           // Merge custom fields natively
           const custom = valuesByStudent[s.id];
@@ -242,27 +252,68 @@
     };
 
     function renderTable() {
+      const thead = document.querySelector("#students-table thead");
       const tbody = document.getElementById("table-body");
+      
       if (filteredStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>No records match filters.</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><p>No records match filters.</p></div></td></tr>`;
         return;
       }
 
+      // 1. Collect all custom headers across current filtered students
+      const customHeaders = new Set();
+      filteredStudents.forEach(s => {
+        if (s.student_data && typeof s.student_data === 'object') {
+            Object.keys(s.student_data).forEach(k => {
+                // Ignore standard keys to prevent duplicates in the view
+                const kLower = k.toLowerCase();
+                if (kLower !== 'name' && kLower !== 'class') {
+                    customHeaders.add(k);
+                }
+            });
+        }
+      });
+      const customHeadersArray = Array.from(customHeaders);
+
+      // 2. Dynamically build the table header
+      let theadHTML = `<tr>
+        <th>Photo</th>
+        <th>Name</th>
+        <th>Class</th>
+        <th>School</th>
+        <th>Date</th>`;
+      customHeadersArray.forEach(h => {
+        theadHTML += `<th>${h}</th>`;
+      });
+      theadHTML += `<th>Action</th></tr>`;
+      thead.innerHTML = theadHTML;
+
+      // 3. Render rows with standard + dynamic columns
       tbody.innerHTML = filteredStudents.map(s => {
         let n = s.name || (s.student_data ? s.student_data.Name : "No Name");
         let c = s.class || (s.student_data ? s.student_data.Class : "N/A");
         const photo = s.photo_url ? `<img src="${s.photo_url}" class="td-photo">` : `<div class="td-photo-placeholder"><i class="fas fa-user"></i></div>`;
         const dt = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
-        return `<tr>
+        
+        let rowHTML = `<tr>
           <td>${photo}</td>
           <td><strong>${n}</strong></td>
           <td><span class="badge badge-blue">${c}</span></td>
           <td style="color:var(--text-muted)">${(s.school_email||"").split("@")[0].toUpperCase()}</td>
-          <td>${dt}</td>
-          <td>
+          <td>${dt}</td>`;
+          
+        // Inject custom cell data
+        customHeadersArray.forEach(h => {
+           const val = (s.student_data && s.student_data[h]) ? s.student_data[h] : '-';
+           rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${val}</td>`;
+        });
+          
+        rowHTML += `<td>
             <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')"><i class="fas fa-trash"></i></button>
           </td>
         </tr>`;
+        
+        return rowHTML;
       }).join('');
     }
 
