@@ -649,6 +649,7 @@
       deselectAll(); // remove selected borders
       
       const canvas = document.getElementById('design-canvas');
+      const canvasRect = canvas.getBoundingClientRect();
       
       // Build pure HTML representation
       let finalHTML = `<div class="id-card" style="width:${canvas.style.width}; height:${canvas.style.height}; position:relative; overflow:hidden; background:#fff; border-radius:10px;">`;
@@ -660,12 +661,18 @@
       
       const elements = document.querySelectorAll('.draggable');
       elements.forEach(el => {
+        // Use getBoundingClientRect for accurate canvas-relative position
+        const elRect = el.getBoundingClientRect();
+        const left = Math.round(elRect.left - canvasRect.left);
+        const top  = Math.round(elRect.top  - canvasRect.top);
+        
         if (el.dataset.type === 'photo') {
-          // Replace with actual img tag that ID preview will use
-          finalHTML += `<img class="id-el id-photo-el" src="{{photo}}" style="position:absolute; left:${el.style.left}; top:${el.style.top}; width:${el.offsetWidth}px; height:${el.offsetHeight}px; border-radius:${el.style.borderRadius || '0'}; object-fit:cover; z-index:1;" onerror="this.src='https://ui-avatars.com/api/?name={{name}}&background=0ea5e9&color=fff'"/>`;
+          const w = Math.round(elRect.width);
+          const h = Math.round(elRect.height);
+          finalHTML += `<img class="id-el id-photo-el" src="{{photo}}" style="position:absolute; left:${left}px; top:${top}px; width:${w}px; height:${h}px; border-radius:${el.style.borderRadius || '0'}; object-fit:cover; z-index:1;" onerror="this.src='https://ui-avatars.com/api/?name={{name}}&background=0ea5e9&color=fff'"/>`;
         } else {
           const span = el.querySelector('span');
-          finalHTML += `<div class="id-el" style="position:absolute; left:${el.style.left}; top:${el.style.top}; font-size:${span.style.fontSize}; color:${span.style.color}; font-weight:${span.style.fontWeight}; white-space:nowrap; z-index:1;">${span.innerText}</div>`;
+          finalHTML += `<div class="id-el" style="position:absolute; left:${left}px; top:${top}px; font-size:${span.style.fontSize || '14px'}; color:${span.style.color || '#000'}; font-weight:${span.style.fontWeight || 'normal'}; white-space:nowrap; z-index:1; line-height:1;">${span.innerText}</div>`;
         }
       });
       

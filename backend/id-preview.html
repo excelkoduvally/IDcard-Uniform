@@ -121,6 +121,25 @@
       align-items: center;
     }
     
+    /* Isolate custom template elements from global app CSS */
+    .id-card .id-el,
+    .id-card .id-photo-el,
+    .id-card .id-bg {
+      box-sizing: border-box;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+      font-family: inherit;
+    }
+    
+    /* Override any global p/div styles from style-app.css inside card */
+    .id-card div,
+    .id-card p,
+    .id-card span {
+      margin: 0;
+      padding: 0;
+    }
+    
     .id-header {
       background: var(--primary);
       color: white;
