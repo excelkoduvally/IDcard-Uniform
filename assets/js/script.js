@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    EXCEL ID CARDS & UNIFORMS â€” JavaScript
 ============================================================ */
 
@@ -287,13 +287,30 @@ document.addEventListener('DOMContentLoaded', function () {
 // QUOTE FORM â€” Submit to WhatsApp (global function)
 // ============================================================
 function submitQuote() {
-  const schoolName = document.getElementById('school-name').value.trim();
-  const product = document.getElementById('product-select').value;
+  const schoolNameEl = document.getElementById('school-name');
+  const productEl = document.getElementById('product-select');
+  const schoolName = schoolNameEl ? schoolNameEl.value.trim() : '';
+  const product = productEl ? productEl.value : '';
+
+  if (!schoolName) {
+    alert("Please enter your School Name before requesting a quote.");
+    if (schoolNameEl) schoolNameEl.focus();
+    return;
+  }
+  if (!product) {
+    alert("Please select a Product category before requesting a quote.");
+    if (productEl) productEl.focus();
+    return;
+  }
+
+  // Prevent dynamic character injection and escape scripts
+  const escapedSchoolName = schoolName.replace(/[<>"]/g, '');
+  const escapedProduct = product.replace(/[<>"]/g, '');
 
   let message = 'Hello, I need a quote';
-  if (schoolName) message += ' for ' + schoolName;
-  if (product) message += ' â€” Product: ' + product;
-  message += '. Please share pricing details.';
+  message += ' for ' + escapedSchoolName;
+  message += ' — Product Category: ' + escapedProduct;
+  message += '. Please share wholesale pricing details and customization options.';
 
   const encodedMessage = encodeURIComponent(message);
   window.open('https://wa.me/919995168026?text=' + encodedMessage, '_blank');

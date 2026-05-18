@@ -285,6 +285,28 @@
                   <label>Height (px)</label>
                   <input type="number" id="prop-height" style="width:60px" onchange="updateProp('height', this.value + 'px')">
                 </div>
+
+                <!-- Ordering Controls -->
+                <div class="prop-row" style="margin-top:1rem; border-top:1px solid var(--border); padding-top:1rem;">
+                  <label>Layer Order</label>
+                  <div style="display:flex; gap:0.25rem;">
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="bringToFront()" title="Bring Front"><i class="fas fa-layer-group"></i> Front</button>
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="sendToBack()" title="Send Back"><i class="fas fa-level-down-alt"></i> Back</button>
+                  </div>
+                </div>
+
+                <!-- Alignment Controls -->
+                <div class="prop-row">
+                  <label>Align to Canvas</label>
+                  <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.25rem; width:120px;">
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem;" onclick="alignElement('left')" title="Align Left"><i class="fas fa-align-left"></i></button>
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem;" onclick="alignElement('center')" title="Center Horizontally"><i class="fas fa-align-center"></i></button>
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem;" onclick="alignElement('right')" title="Align Right"><i class="fas fa-align-right"></i></button>
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem;" onclick="alignElement('top')" title="Align Top"><i class="fas fa-arrow-up"></i></button>
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem;" onclick="alignElement('middle')" title="Center Vertically"><i class="fas fa-arrows-alt-v"></i></button>
+                    <button class="btn btn-sm btn-outline" style="padding:0.25rem;" onclick="alignElement('bottom')" title="Align Bottom"><i class="fas fa-arrow-down"></i></button>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -300,8 +322,23 @@
 
           <!-- Right: Canvas -->
           <div class="canvas-container">
-            <div class="canvas-toolbar">
-              <button class="btn btn-sm btn-outline" onclick="toggleOrientation()"><i class="fas fa-sync"></i> Flip (Portrait/Landscape)</button>
+            <!-- Sample Student Selection Bar -->
+            <div id="sample-student-container" style="display:none; margin-bottom:1rem; width:100%; max-width:500px; display:flex; gap:0.5rem; align-items:center; background:rgba(15,23,42,0.4); padding:0.5rem 1rem; border-radius:8px; border:1px solid var(--border);">
+              <span style="font-size:0.8rem; color:var(--text-muted); white-space:nowrap;"><i class="fas fa-eye"></i> Live Student Preview:</span>
+              <select id="sample-student-select" class="form-control" style="margin:0; padding:0.25rem; font-size:0.8rem; width:100%; background:var(--dark); border-color:var(--border); color:var(--text);" onchange="changeSampleStudent(this.value)">
+                <option value="">-- Show Variable Placeholders ({{name}}) --</option>
+              </select>
+            </div>
+
+            <div class="canvas-toolbar" style="display:flex; gap:0.75rem; align-items:center; background:rgba(15,23,42,0.4); padding:0.5rem 1rem; border-radius:8px; border:1px solid var(--border); margin-bottom:1rem; width:100%; max-width:500px; justify-content:space-between;">
+              <div style="display:flex; gap:0.25rem;">
+                <button class="btn btn-sm btn-outline" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)" disabled style="padding:0.25rem 0.5rem;"><i class="fas fa-undo"></i></button>
+                <button class="btn btn-sm btn-outline" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)" disabled style="padding:0.25rem 0.5rem;"><i class="fas fa-redo"></i></button>
+              </div>
+              <label style="font-size:0.8rem; display:flex; align-items:center; gap:0.35rem; cursor:pointer; color:var(--text-muted); user-select:none;">
+                <input type="checkbox" id="snap-grid-chk" onchange="toggleSnapToGrid(this.checked)" style="accent-color:var(--primary); cursor:pointer;" /> Snap Grid
+              </label>
+              <button class="btn btn-sm btn-outline" onclick="toggleOrientation()" style="padding:0.25rem 0.5rem; font-size:0.8rem;"><i class="fas fa-sync"></i> Flip Orientation</button>
             </div>
             
             <div id="design-canvas">
@@ -323,6 +360,18 @@
     let schoolId = new URLSearchParams(window.location.search).get("id");
     let selectedElement = null;
     let elementCount = 0;
+    
+    // Undo/Redo State Stacks
+    let undoStack = [];
+    let redoStack = [];
+    
+    // Snapping configuration
+    let snapToGrid = false;
+    
+    // Preview Configuration
+    let sampleStudent = null;
+    let previewMode = 'placeholder'; // 'placeholder' or 'sample'
+    window.sampleStudentsList = [];
 
     async function init() {
       await guardPage('admin');
@@ -332,13 +381,19 @@
       if (data) {
         document.getElementById('school-name').textContent = data.school_name || data.email;
         if (data.id_template && data.id_template.includes('class="id-card"')) {
-            // It's a generated HTML template! We can load it back into the canvas
             loadDesign(data.id_template);
         }
       }
       
       // Load dynamic fields
-      loadDynamicFields();
+      await loadDynamicFields();
+      
+      // Load sample students for premium live preview
+      await loadSampleStudents();
+
+      // Check and restore autosaved drafts
+      checkAutosave();
+      startAutosave();
 
       // Canvas events
       const canvas = document.getElementById('design-canvas');
@@ -347,6 +402,9 @@
           deselectAll();
         }
       });
+      
+      // Setup initial undo state
+      saveState();
     }
 
     async function loadDynamicFields() {
@@ -361,22 +419,35 @@
         if (error) throw error;
         
         const container = document.getElementById('dynamic-fields-container');
-        let buttonsHTML = `
-          <button class="field-btn" onclick="addField('Photo', 'photo')"><i class="fas fa-camera"></i> Photo</button>
-          <button class="field-btn" onclick="addField('Name', 'text', '{{name}}')">Name</button>
-          <button class="field-btn" onclick="addField('Class', 'text', '{{class}}')">Class</button>
-        `;
+        const fields = data || [];
+        const hasKey = (key) => fields.some(f => f.field_key.toLowerCase() === key);
         
-        // Add dynamic fields
-        if (data && data.length > 0) {
-          data.forEach(field => {
-             // Skip name/class/photo if they somehow got added as custom fields to avoid duplicates
-             const key = field.field_key.toLowerCase();
-             if (key === 'name' || key === 'class' || key === 'photo') return;
-             
-             buttonsHTML += `<button class="field-btn" onclick="addField('${field.field_name}', 'text', '{{${field.field_key}}}')">${field.field_name}</button>`;
-          });
+        let buttonsHTML = '';
+        
+        // Add Photo first if not in database to maintain backwards-compatibility
+        if (!hasKey('photo')) {
+          buttonsHTML += `<button class="field-btn" onclick="addField('Photo', 'photo')"><i class="fas fa-camera"></i> Photo</button>`;
         }
+        
+        // Add default Name if not in database
+        if (!hasKey('name')) {
+          buttonsHTML += `<button class="field-btn" onclick="addField('Name', 'text', '{{name}}')">Name</button>`;
+        }
+        
+        // Add default Class if not in database
+        if (!hasKey('class')) {
+          buttonsHTML += `<button class="field-btn" onclick="addField('Class', 'text', '{{class}}')">Class</button>`;
+        }
+        
+        // Add database-driven dynamic student fields
+        fields.forEach(field => {
+          const key = field.field_key.toLowerCase();
+          if (key === 'photo') {
+            buttonsHTML += `<button class="field-btn" onclick="addField('${field.field_name}', 'photo')"><i class="fas fa-camera"></i> ${field.field_name}</button>`;
+          } else {
+            buttonsHTML += `<button class="field-btn" onclick="addField('${field.field_name}', 'text', '{{${field.field_key}}}')">${field.field_name}</button>`;
+          }
+        });
         
         buttonsHTML += `<button class="field-btn" onclick="addField('Custom Text', 'text', 'Text')">Custom Text</button>`;
         container.innerHTML = buttonsHTML;
@@ -387,9 +458,25 @@
       }
     }
 
+    // Cloudinary upload validation
     window.handleBackgroundUpload = async function(e) {
       const file = e.target.files[0];
       if (!file) return;
+      
+      // 1. Strict validation: Max file size (5MB)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert("Upload failed: Maximum background image size is 5MB.");
+        e.target.value = '';
+        return;
+      }
+      
+      // 2. Strict validation: Image formats only
+      if (!file.type.startsWith('image/')) {
+        alert("Upload failed: Only JPEG, PNG, and standard image files are allowed.");
+        e.target.value = '';
+        return;
+      }
       
       const btn = e.target.previousElementSibling;
       const originalText = btn.innerHTML;
@@ -401,23 +488,54 @@
         const bg = document.getElementById('canvas-bg');
         bg.src = url;
         bg.style.display = 'block';
+        saveState();
       } catch (err) {
         alert("Failed to upload background: " + err.message);
       } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
+        e.target.value = ''; // Reset input
       }
     };
 
+    // Responsive Landscape/Portrait coordinates translation
     window.toggleOrientation = function() {
       const canvas = document.getElementById('design-canvas');
+      const oldWidth = canvas.clientWidth;
+      const oldHeight = canvas.clientHeight;
+      
+      let newWidth, newHeight;
       if (canvas.style.width === '338px') {
-        canvas.style.width = '214px';
-        canvas.style.height = '338px';
+        newWidth = 214;
+        newHeight = 338;
       } else {
-        canvas.style.width = '338px';
-        canvas.style.height = '214px';
+        newWidth = 338;
+        newHeight = 214;
       }
+      
+      canvas.style.width = newWidth + 'px';
+      canvas.style.height = newHeight + 'px';
+      
+      const scaleX = newWidth / oldWidth;
+      const scaleY = newHeight / oldHeight;
+      
+      // Translate all draggable elements relative to the new layout scale
+      document.querySelectorAll('.draggable').forEach(el => {
+        let left = parseInt(el.style.left) || 0;
+        let top = parseInt(el.style.top) || 0;
+        
+        left = Math.round(left * scaleX);
+        top = Math.round(top * scaleY);
+        
+        // Clamp bounds
+        left = Math.max(0, Math.min(left, newWidth - el.offsetWidth));
+        top = Math.max(0, Math.min(top, newHeight - el.offsetHeight));
+        
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+      });
+      
+      saveState();
     };
 
     window.addField = function(type, kind, textVal = '') {
@@ -426,40 +544,55 @@
       el.id = 'drag-' + (++elementCount);
       el.style.left = '50px';
       el.style.top = '50px';
+      el.style.zIndex = '10';
       
       const delBtn = document.createElement('div');
       delBtn.className = 'delete-btn';
       delBtn.innerHTML = '<i class="fas fa-times"></i>';
-      delBtn.onclick = (e) => { e.stopPropagation(); el.remove(); deselectAll(); };
+      delBtn.onclick = (e) => { e.stopPropagation(); el.remove(); deselectAll(); saveState(); };
       el.appendChild(delBtn);
 
       if (kind === 'photo') {
         el.classList.add('drag-photo');
         el.dataset.type = 'photo';
         el.innerHTML += 'Photo <br/>{{photo}}';
-        el.style.borderRadius = '0%'; // default rectangle
+        el.style.borderRadius = '0%';
         el.style.width = '70px';
         el.style.height = '90px';
         
-        // Add resize handle
         const resizer = document.createElement('div');
         resizer.className = 'resize-handle';
         el.appendChild(resizer);
         makeResizable(el, resizer);
       } else {
+        el.dataset.type = 'text';
         const span = document.createElement('span');
         span.className = 'drag-text';
         span.dataset.type = 'text';
+        span.dataset.placeholder = textVal;
         span.innerText = textVal;
         span.style.fontSize = '16px';
         span.style.color = '#000000';
         span.style.fontWeight = 'bold';
+        
+        // Double-click inline prompt editor
+        span.ondblclick = (e) => {
+          e.stopPropagation();
+          const newText = prompt("Edit custom text / placeholder:", span.dataset.placeholder);
+          if (newText !== null && newText.trim() !== '') {
+            span.dataset.placeholder = newText;
+            span.innerText = newText;
+            updateCanvasPreviews();
+            saveState();
+          }
+        };
         el.appendChild(span);
       }
       
       document.getElementById('design-canvas').appendChild(el);
       makeDraggable(el);
       selectElement(el);
+      saveState();
     };
 
     function makeDraggable(el) {
@@ -481,13 +614,30 @@
         pos2 = pos4 - e.clientY;
         pos3 = e.clientX;
         pos4 = e.clientY;
-        el.style.top = (el.offsetTop - pos2) + "px";
-        el.style.left = (el.offsetLeft - pos1) + "px";
+        
+        const canvas = document.getElementById("design-canvas");
+        let newLeft = el.offsetLeft - pos1;
+        let newTop = el.offsetTop - pos2;
+        
+        // Grid Snapping
+        if (snapToGrid) {
+          const grid = 5;
+          newLeft = Math.round(newLeft / grid) * grid;
+          newTop = Math.round(newTop / grid) * grid;
+        }
+        
+        // Bounds clamping
+        newLeft = Math.max(0, Math.min(newLeft, canvas.clientWidth - el.offsetWidth));
+        newTop = Math.max(0, Math.min(newTop, canvas.clientHeight - el.offsetHeight));
+        
+        el.style.left = newLeft + "px";
+        el.style.top = newTop + "px";
       }
 
       function closeDragElement() {
         document.onmouseup = null;
         document.onmousemove = null;
+        saveState();
       }
     }
 
@@ -496,7 +646,7 @@
       
       resizer.addEventListener('mousedown', function(e) {
         e.preventDefault();
-        e.stopPropagation(); // Prevent drag from firing
+        e.stopPropagation();
         
         startX = e.clientX;
         startY = e.clientY;
@@ -508,19 +658,26 @@
       });
       
       function resizeDrag(e) {
-        el.style.width = (startWidth + e.clientX - startX) + 'px';
-        el.style.height = (startHeight + e.clientY - startY) + 'px';
+        let newWidth = startWidth + e.clientX - startX;
+        let newHeight = startHeight + e.clientY - startY;
         
-        // Update property inputs live if panel is open
+        // Clamp size dimensions
+        newWidth = Math.max(30, Math.min(200, newWidth));
+        newHeight = Math.max(30, Math.min(250, newHeight));
+        
+        el.style.width = newWidth + 'px';
+        el.style.height = newHeight + 'px';
+        
         if (selectedElement === el) {
-          document.getElementById('prop-width').value = parseInt(el.style.width);
-          document.getElementById('prop-height').value = parseInt(el.style.height);
+          document.getElementById('prop-width').value = newWidth;
+          document.getElementById('prop-height').value = newHeight;
         }
       }
       
       function stopResize() {
         document.removeEventListener('mousemove', resizeDrag);
         document.removeEventListener('mouseup', stopResize);
+        saveState();
       }
     }
 
@@ -532,7 +689,6 @@
       document.getElementById('no-selection').style.display = 'none';
       document.getElementById('prop-panel').classList.add('active');
       
-      // Load properties
       if (el.dataset.type === 'photo') {
         document.getElementById('prop-radius-row').style.display = 'flex';
         document.getElementById('prop-width-row').style.display = 'flex';
@@ -564,7 +720,9 @@
         const bg = document.getElementById('canvas-bg');
         bg.src = '';
         bg.style.display = 'none';
+        elementCount = 0;
         deselectAll();
+        saveState();
       }
     };
 
@@ -576,82 +734,236 @@
         if (prop === 'height') selectedElement.style.height = val;
       } else {
         const span = selectedElement.querySelector('span');
-        if (span) span.style[prop] = val;
+        if (span) {
+          span.style[prop] = val;
+        }
       }
-    }
+      saveState();
+    };
 
-    function loadDesign(htmlString) {
-      const temp = document.createElement('div');
-      temp.innerHTML = htmlString;
-      const loadedCanvas = temp.querySelector('.id-card');
-      if(!loadedCanvas) return;
-      
-      const canvas = document.getElementById('design-canvas');
-      canvas.style.width = loadedCanvas.style.width;
-      canvas.style.height = loadedCanvas.style.height;
-      
-      // Background
-      const img = loadedCanvas.querySelector('.id-bg');
-      if (img) {
-        document.getElementById('canvas-bg').src = img.src;
-        document.getElementById('canvas-bg').style.display = 'block';
-      }
-      
-      // Elements
-      const els = loadedCanvas.querySelectorAll('.id-el');
-      els.forEach(srcEl => {
-         const el = document.createElement('div');
-         el.className = 'draggable';
-         el.id = 'drag-' + (++elementCount);
-         el.style.left = srcEl.style.left;
-         el.style.top = srcEl.style.top;
-         
-         const delBtn = document.createElement('div');
-         delBtn.className = 'delete-btn';
-         delBtn.innerHTML = '<i class="fas fa-times"></i>';
-         delBtn.onclick = (e) => { e.stopPropagation(); el.remove(); deselectAll(); };
-         el.appendChild(delBtn);
-         
-         if (srcEl.classList.contains('id-photo-el')) {
-           el.classList.add('drag-photo');
-           el.dataset.type = 'photo';
-           el.innerHTML += 'Photo <br/>{{photo}}';
-           el.style.borderRadius = srcEl.style.borderRadius;
-           el.style.width = srcEl.style.width;
-           el.style.height = srcEl.style.height;
-           
-           // Add resize handle
-           const resizer = document.createElement('div');
-           resizer.className = 'resize-handle';
-           el.appendChild(resizer);
-           makeResizable(el, resizer);
-         } else {
-           const span = document.createElement('span');
-           span.className = 'drag-text';
-           span.dataset.type = 'text';
-           span.innerText = srcEl.innerText;
-           span.style.fontSize = srcEl.style.fontSize;
-           span.style.color = srcEl.style.color;
-           span.style.fontWeight = srcEl.style.fontWeight;
-           el.appendChild(span);
-         }
-         
-         canvas.appendChild(el);
-         makeDraggable(el);
+    // Z-Index Layers Order Controllers
+    window.bringToFront = function() {
+      if (!selectedElement) return;
+      let maxZ = 10;
+      document.querySelectorAll('.draggable').forEach(el => {
+        const z = parseInt(el.style.zIndex) || 10;
+        if (z > maxZ) maxZ = z;
       });
+      selectedElement.style.zIndex = (maxZ + 1) + '';
+      saveState();
+    };
+
+    window.sendToBack = function() {
+      if (!selectedElement) return;
+      let minZ = 10;
+      document.querySelectorAll('.draggable').forEach(el => {
+        const z = parseInt(el.style.zIndex) || 10;
+        if (z < minZ) minZ = z;
+      });
+      selectedElement.style.zIndex = Math.max(1, minZ - 1) + '';
+      saveState();
+    };
+
+    // Canvas Alignment helpers
+    window.alignElement = function(alignment) {
+      if (!selectedElement) return;
+      const canvas = document.getElementById('design-canvas');
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      const ew = selectedElement.offsetWidth;
+      const eh = selectedElement.offsetHeight;
+      
+      if (alignment === 'left') {
+        selectedElement.style.left = '0px';
+      } else if (alignment === 'center') {
+        selectedElement.style.left = Math.round((cw - ew) / 2) + 'px';
+      } else if (alignment === 'right') {
+        selectedElement.style.left = Math.round(cw - ew) + 'px';
+      } else if (alignment === 'top') {
+        selectedElement.style.top = '0px';
+      } else if (alignment === 'middle') {
+        selectedElement.style.top = Math.round((ch - eh) / 2) + 'px';
+      } else if (alignment === 'bottom') {
+        selectedElement.style.top = Math.round(ch - eh) + 'px';
+      }
+      
+      saveState();
+    };
+
+    // Undo/Redo Engine Functions
+    window.undo = function() {
+      if (undoStack.length <= 1) return;
+      const current = undoStack.pop();
+      redoStack.push(current);
+      
+      const prev = undoStack[undoStack.length - 1];
+      restoreState(prev);
+    };
+
+    window.redo = function() {
+      if (redoStack.length === 0) return;
+      const next = redoStack.pop();
+      undoStack.push(next);
+      
+      restoreState(next);
+    };
+
+    function saveState() {
+      deselectAll();
+      const canvas = document.getElementById('design-canvas');
+      const state = canvas.innerHTML;
+      
+      if (undoStack.length > 0 && undoStack[undoStack.length - 1] === state) return;
+      
+      undoStack.push(state);
+      redoStack = [];
+      updateUndoRedoButtons();
     }
 
+    function restoreState(stateHTML) {
+      const canvas = document.getElementById('design-canvas');
+      canvas.innerHTML = stateHTML;
+      
+      // Re-attach background event and reload canvas image
+      const bg = canvas.querySelector('#canvas-bg');
+      
+      // Re-bind actions to all parsed elements
+      canvas.querySelectorAll('.draggable').forEach(el => {
+        const delBtn = el.querySelector('.delete-btn');
+        if (delBtn) {
+          delBtn.onclick = (e) => { e.stopPropagation(); el.remove(); deselectAll(); saveState(); };
+        }
+        
+        const resizer = el.querySelector('.resize-handle');
+        if (resizer) {
+          makeResizable(el, resizer);
+        }
+        
+        makeDraggable(el);
+        
+        // Re-attach custom text inline editor dblclick
+        const span = el.querySelector('span');
+        if (span) {
+          span.ondblclick = (e) => {
+            e.stopPropagation();
+            const newText = prompt("Edit custom text / placeholder:", span.dataset.placeholder);
+            if (newText !== null && newText.trim() !== '') {
+              span.dataset.placeholder = newText;
+              span.innerText = newText;
+              updateCanvasPreviews();
+              saveState();
+            }
+          };
+        }
+      });
+      
+      deselectAll();
+      updateUndoRedoButtons();
+    }
+
+    function updateUndoRedoButtons() {
+      const undoBtn = document.getElementById('btn-undo');
+      const redoBtn = document.getElementById('btn-redo');
+      if (undoBtn) undoBtn.disabled = undoStack.length <= 1;
+      if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+    }
+
+    window.toggleSnapToGrid = function(checked) {
+      snapToGrid = checked;
+    };
+
+    // Load Design: DOMParser Sanitized HTML loader (XSS Protected)
+    function loadDesign(htmlString) {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlString, 'text/html');
+        const loadedCanvas = doc.querySelector('.id-card');
+        if (!loadedCanvas) return;
+        
+        const canvas = document.getElementById('design-canvas');
+        canvas.style.width = loadedCanvas.style.width;
+        canvas.style.height = loadedCanvas.style.height;
+        
+        // Load canvas background safely
+        const img = loadedCanvas.querySelector('.id-bg');
+        if (img && img.src) {
+          const bg = document.getElementById('canvas-bg');
+          bg.src = img.src;
+          bg.style.display = 'block';
+        }
+        
+        // Parse elements safely
+        const els = loadedCanvas.querySelectorAll('.id-el');
+        els.forEach(srcEl => {
+          const el = document.createElement('div');
+          el.className = 'draggable';
+          el.id = 'drag-' + (++elementCount);
+          el.style.left = srcEl.style.left;
+          el.style.top = srcEl.style.top;
+          el.style.zIndex = srcEl.style.zIndex || '10';
+          
+          const delBtn = document.createElement('div');
+          delBtn.className = 'delete-btn';
+          delBtn.innerHTML = '<i class="fas fa-times"></i>';
+          delBtn.onclick = (e) => { e.stopPropagation(); el.remove(); deselectAll(); saveState(); };
+          el.appendChild(delBtn);
+          
+          if (srcEl.classList.contains('id-photo-el')) {
+            el.classList.add('drag-photo');
+            el.dataset.type = 'photo';
+            el.innerHTML += 'Photo <br/>{{photo}}';
+            el.style.borderRadius = srcEl.style.borderRadius;
+            el.style.width = srcEl.style.width;
+            el.style.height = srcEl.style.height;
+            
+            const resizer = document.createElement('div');
+            resizer.className = 'resize-handle';
+            el.appendChild(resizer);
+            makeResizable(el, resizer);
+          } else {
+            el.dataset.type = 'text';
+            const span = document.createElement('span');
+            span.className = 'drag-text';
+            span.dataset.type = 'text';
+            span.dataset.placeholder = srcEl.innerText;
+            span.innerText = srcEl.innerText;
+            span.style.fontSize = srcEl.style.fontSize;
+            span.style.color = srcEl.style.color;
+            span.style.fontWeight = srcEl.style.fontWeight;
+            
+            // Re-bind double click
+            span.ondblclick = (e) => {
+              e.stopPropagation();
+              const newText = prompt("Edit custom text / placeholder:", span.dataset.placeholder);
+              if (newText !== null && newText.trim() !== '') {
+                span.dataset.placeholder = newText;
+                span.innerText = newText;
+                updateCanvasPreviews();
+                saveState();
+              }
+            };
+            el.appendChild(span);
+          }
+          
+          canvas.appendChild(el);
+          makeDraggable(el);
+        });
+      } catch (e) {
+        console.error("Failed to safely load layout: ", e);
+      }
+    }
+
+    // Direct styles properties parsing (Zoom-independent)
     window.saveDesign = async function() {
       const btn = document.getElementById('btn-save');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
       btn.disabled = true;
       
-      deselectAll(); // remove selected borders
+      deselectAll();
       
       const canvas = document.getElementById('design-canvas');
-      const canvasRect = canvas.getBoundingClientRect();
       
-      // Build pure HTML representation
+      // Build clean output HTML representation using actual CSS styles directly (100% Zoom Immune!)
       let finalHTML = `<div class="id-card" style="width:${canvas.style.width}; height:${canvas.style.height}; position:relative; overflow:hidden; background:#fff; border-radius:10px;">`;
       
       const bg = document.getElementById('canvas-bg');
@@ -661,25 +973,34 @@
       
       const elements = document.querySelectorAll('.draggable');
       elements.forEach(el => {
-        // Use getBoundingClientRect for accurate canvas-relative position
-        const elRect = el.getBoundingClientRect();
-        const left = Math.round(elRect.left - canvasRect.left);
-        const top  = Math.round(elRect.top  - canvasRect.top);
+        const left = parseInt(el.style.left) || 0;
+        const top  = parseInt(el.style.top) || 0;
+        const zIdx = el.style.zIndex || '10';
         
         if (el.dataset.type === 'photo') {
-          const w = Math.round(elRect.width);
-          const h = Math.round(elRect.height);
-          finalHTML += `<img class="id-el id-photo-el" src="{{photo}}" style="position:absolute; left:${left}px; top:${top}px; width:${w}px; height:${h}px; border-radius:${el.style.borderRadius || '0'}; object-fit:cover; z-index:1;" onerror="this.src='https://ui-avatars.com/api/?name={{name}}&background=0ea5e9&color=fff'"/>`;
+          const w = parseInt(el.style.width) || 70;
+          const h = parseInt(el.style.height) || 90;
+          finalHTML += `<img class="id-el id-photo-el" src="{{photo}}" style="position:absolute; left:${left}px; top:${top}px; width:${w}px; height:${h}px; border-radius:${el.style.borderRadius || '0'}; object-fit:cover; z-index:${zIdx};" onerror="this.src='https://ui-avatars.com/api/?name={{name}}&background=0ea5e9&color=fff'"/>`;
         } else {
           const span = el.querySelector('span');
-          finalHTML += `<div class="id-el" style="position:absolute; left:${left}px; top:${top}px; font-size:${span.style.fontSize || '14px'}; color:${span.style.color || '#000'}; font-weight:${span.style.fontWeight || 'normal'}; white-space:nowrap; z-index:1; line-height:1;">${span.innerText}</div>`;
+          finalHTML += `<div class="id-el" style="position:absolute; left:${left}px; top:${top}px; font-size:${span.style.fontSize || '14px'}; color:${span.style.color || '#000'}; font-weight:${span.style.fontWeight || 'normal'}; white-space:nowrap; z-index:${zIdx}; line-height:1;">${span.dataset.placeholder}</div>`;
         }
       });
       
       finalHTML += `</div>`;
       
+      // Save structured metadata directly in HTML comments (backwards compatible database isolation pattern)
+      const meta = {
+        background_url: bg.src || '',
+        orientation: canvas.style.width === '338px' ? 'landscape' : 'portrait',
+        elements_count: elements.length,
+        saved_at: new Date().toISOString()
+      };
+      
+      const fullSavedPayload = `<!-- TEMPLATE_META: ${JSON.stringify(meta)} -->\n${finalHTML}`;
+      
       try {
-        const { error } = await supabase.from('schools').update({ id_template: finalHTML }).eq('id', schoolId);
+        const { error } = await supabase.from('schools').update({ id_template: fullSavedPayload }).eq('id', schoolId);
         if (error) throw error;
         alert("Design saved successfully! It is now active in the Live ID Preview.");
       } catch (err) {
@@ -689,7 +1010,155 @@
         btn.disabled = false;
       }
     };
-    
+
+    // Keyboard DELETE handler
+    document.addEventListener('keydown', (e) => {
+      // 1. Delete element key binding
+      if (selectedElement && (e.key === 'Delete' || e.key === 'Backspace')) {
+        // Prevent browser navigation on Backspace
+        if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+          e.preventDefault();
+          selectedElement.remove();
+          deselectAll();
+          saveState();
+        }
+      }
+      
+      // 2. Keyboard shortcut: Ctrl + Z (Undo)
+      if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+      }
+      
+      // 3. Keyboard shortcut: Ctrl + Y (Redo)
+      if (e.ctrlKey && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    });
+
+    // Premium Live preview with real student
+    async function loadSampleStudents() {
+      try {
+        const { data } = await supabase.from('students').select('*').eq('school_id', schoolId).limit(5);
+        if (data && data.length > 0) {
+          data.forEach(s => {
+            if (typeof s.student_data === 'string') {
+              try { s.student_data = JSON.parse(s.student_data); } catch(e) {}
+            }
+          });
+          
+          window.sampleStudentsList = data;
+          
+          const selector = document.getElementById('sample-student-select');
+          selector.innerHTML = '<option value="">-- Show Variable Placeholders ({{name}}) --</option>';
+          data.forEach(s => {
+            selector.innerHTML += `<option value="${s.id}">${s.name || s.student_data?.name || 'Sample Student'}</option>`;
+          });
+          document.getElementById('sample-student-container').style.display = 'flex';
+        }
+      } catch(e) {
+        console.error("Error loading sample students", e);
+      }
+    }
+
+    window.changeSampleStudent = function(id) {
+      if (!id) {
+        sampleStudent = null;
+        previewMode = 'placeholder';
+      } else {
+        sampleStudent = window.sampleStudentsList.find(s => s.id === id);
+        previewMode = 'sample';
+      }
+      updateCanvasPreviews();
+    };
+
+    function updateCanvasPreviews() {
+      document.querySelectorAll('.draggable span').forEach(span => {
+        const placeholder = span.dataset.placeholder || '';
+        if (previewMode === 'sample' && sampleStudent) {
+          if (placeholder.startsWith('{{') && placeholder.endsWith('}}')) {
+            const key = placeholder.slice(2, -2);
+            span.innerText = getStudentValue(sampleStudent, key) || placeholder;
+          } else {
+            span.innerText = placeholder;
+          }
+        } else {
+          span.innerText = placeholder;
+        }
+      });
+    }
+
+    function getStudentValue(student, key) {
+      if (!key) return "";
+      const kLower = key.toLowerCase();
+      if (student[key] || student[kLower]) return student[key] || student[kLower];
+      if (student.student_data) {
+        if (student.student_data[key]) return student.student_data[key];
+        if (student.student_data[kLower]) return student.student_data[kLower];
+        for (let k in student.student_data) {
+          if (k.toLowerCase() === kLower) return student.student_data[k];
+        }
+      }
+      return "";
+    }
+
+    // Automated 5-seconds autosave draft system
+    function startAutosave() {
+      setInterval(() => {
+        deselectAll();
+        const canvas = document.getElementById('design-canvas');
+        const state = {
+          html: canvas.innerHTML,
+          width: canvas.style.width,
+          height: canvas.style.height,
+          timestamp: new Date().getTime()
+        };
+        localStorage.setItem('autosave_' + schoolId, JSON.stringify(state));
+      }, 5000);
+    }
+
+    function checkAutosave() {
+      const saved = localStorage.getItem('autosave_' + schoolId);
+      if (saved) {
+        try {
+          const state = JSON.parse(saved);
+          const timeDiff = new Date().getTime() - state.timestamp;
+          // Don't show if too stale (older than 2 hours)
+          if (timeDiff > 2 * 60 * 60 * 1000) {
+            localStorage.removeItem('autosave_' + schoolId);
+            return;
+          }
+          
+          const toast = document.createElement('div');
+          toast.id = 'autosave-toast';
+          toast.style = "position:fixed; bottom:24px; right:24px; background:var(--card-bg); backdrop-filter:blur(16px); border:1px solid var(--primary); color:var(--text); padding:1rem 1.5rem; border-radius:12px; z-index:1000; box-shadow:0 15px 35px rgba(0,0,0,0.4); display:flex; flex-direction:column; gap:0.75rem; max-width:320px;";
+          toast.innerHTML = `
+            <div style="font-weight:bold; font-size:0.9rem; color:var(--primary); display:flex; align-items:center; gap:0.5rem;">
+              <i class="fas fa-magic"></i> Unsaved Draft Found
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">We recovered a recent autosaved design from your last session.</div>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+              <button class="btn btn-sm btn-outline" style="padding:0.25rem 0.5rem;" onclick="document.getElementById('autosave-toast').remove(); localStorage.removeItem('autosave_${schoolId}');">Discard</button>
+              <button class="btn btn-sm" id="btn-restore-autosave" style="padding:0.25rem 0.5rem; background:var(--primary); color:white;">Restore</button>
+            </div>
+          `;
+          document.body.appendChild(toast);
+          
+          document.getElementById('btn-restore-autosave').onclick = () => {
+            const canvas = document.getElementById('design-canvas');
+            canvas.style.width = state.width;
+            canvas.style.height = state.height;
+            restoreState(state.html);
+            toast.remove();
+            saveState();
+          };
+        } catch(e) {
+          localStorage.removeItem('autosave_' + schoolId);
+        }
+      }
+    }
+
     init();
   </script>
 </body>
