@@ -374,7 +374,7 @@
       return row;
     }
 
-    const STUDENT_SELECT = 'id,name,class,created_at,photo_url,school_id,student_data,parent_phone,dob,schools(id,email,school_name),student_field_values(value,student_fields(field_name,field_key))';
+    const STUDENT_SELECT = 'id,admission_no,name,class,created_at,photo_url,school_id,student_data,parent_phone,dob,schools(id,email,school_name),student_field_values(value,student_fields(field_name,field_key))';
 
     // Load filter dropdowns once on start
     async function initFilters() {
@@ -707,17 +707,7 @@
           btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Fetching all student records...`;
           const { data: students, error: fetchErr } = await supabase
             .from('students')
-            .select(`
-              id,
-              name,
-              class,
-              photo_url,
-              admission_no,
-              student_data,
-              schools (
-                school_name
-              )
-            `)
+            .select(STUDENT_SELECT)
             .eq('school_id', schoolId);
 
           if (fetchErr) throw fetchErr;
