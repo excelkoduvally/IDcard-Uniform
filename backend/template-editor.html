@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual Template Editor | Excel ID Cards</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/images/favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="../assets/css/style-app.css" />
+  <style>
+    .editor-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    
+    .tools-panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      height: calc(100vh - 200px);
+      overflow-y: auto;
+    }
+    
+    .tool-section h3 {
+      font-size: 0.85rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    
+    .field-btn {
+      display: inline-block;
+      padding: 0.5rem 0.75rem;
+      background: rgba(15,23,42,0.6);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: var(--text);
+      cursor: pointer;
+      margin-bottom: 0.5rem;
+      margin-right: 0.5rem;
+      transition: all 0.2s;
+    }
+    
+    .field-btn:hover {
+      border-color: var(--primary);
+      background: rgba(14,165,233,0.1);
+    }
+    
+    .canvas-container {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      height: calc(100vh - 200px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .canvas-toolbar {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* THE CANVAS */
+    #design-canvas {
+      width: 214px; /* standard CR80 portrait */
+      height: 338px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    #canvas-bg {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    /* Draggable Elements */
+    .draggable {
+      position: absolute;
+      cursor: move;
+      user-select: none;
+      z-index: 10;
+      border: 1px dashed transparent;
+      padding: 2px;
+    }
+
+    .draggable:hover {
+      border-color: rgba(14,165,233,0.5);
+    }
+
+    .draggable.selected {
+      border-color: var(--primary);
+      background: rgba(14,165,233,0.1);
+    }
+    
+    .draggable .delete-btn {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: var(--danger);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .draggable.selected .delete-btn {
+      display: flex;
+    }
+
+    .drag-photo {
+      width: 80px;
+      height: 80px;
+      border: 2px solid #ccc;
+      background: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 0.7rem;
+      border-radius: 0; /* Default square, can be customized */
+    }
+
+    .drag-text {
+      font-size: 14px;
+      color: #000;
+      white-space: nowrap;
+    }
+
+    .properties-panel {
+      display: none;
+      margin-top: 1rem;
+      background: rgba(15,23,42,0.6);
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+    }
+    
+    .properties-panel.active {
+      display: block;
+    }
+    
+    .prop-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .prop-row label { font-size: 0.75rem; color: var(--text-muted); }
+    .prop-row input, .prop-row select { 
+      background: var(--dark);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="../assets/images/excel_logo_transparent.png" alt="Excel Logo">
+          <span>Excel <b>Admin</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="schools.html" class="active"><i class="fas fa-school"></i> Schools</a></li>
+        <li><a href="id-preview.html"><i class="fas fa-id-card"></i> ID Preview</a></li>
+      </ul>
+      <div class="sidebar-footer" style="margin-top:auto">
+        <button class="btn btn-outline btn-full" onclick="window.history.back()"><i class="fas fa-arrow-left"></i> Back</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Visual Template Designer: <span id="school-name" style="color:var(--primary)">Loading...</span></div>
+      </div>
+
+      <div class="content-area">
+        <div class="editor-layout">
+          
+          <!-- Left: Tools -->
+          <div class="tools-panel">
+            <div class="tool-section">
+              <h3>1. Background Image</h3>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">Upload the blank ID design (JPG/PNG). Standard size: 214x338 px.</p>
+              <button class="btn btn-outline btn-full" onclick="document.getElementById('bg-upload').click()">
+                <i class="fas fa-upload"></i> Upload Image
+              </button>
+              <input type="file" id="bg-upload" accept="image/*" style="display:none;" onchange="handleBackgroundUpload(event)" />
+            </div>
+
+            <div class="tool-section">
+              <h3>2. Add Data Fields</h3>
+              <div>
+                <button class="field-btn" onclick="addField('Photo', 'photo')"><i class="fas fa-camera"></i> Photo</button>
+                <button class="field-btn" onclick="addField('Name', 'text', '{{name}}')">Name</button>
+                <button class="field-btn" onclick="addField('Class', 'text', '{{class}}')">Class</button>
+                <button class="field-btn" onclick="addField('Admn No', 'text', '{{admission_no}}')">Admn No</button>
+                <button class="field-btn" onclick="addField('Phone', 'text', '{{phone}}')">Phone</button>
+                <button class="field-btn" onclick="addField('Custom Text', 'text', 'Text')">Custom Text</button>
+              </div>
+            </div>
+
+            <div class="tool-section">
+              <h3>3. Element Properties</h3>
+              <div id="no-selection" style="font-size:0.8rem; color:var(--text-muted);">Select an element on the canvas to edit.</div>
+              
+              <div class="properties-panel" id="prop-panel">
+                <div class="prop-row">
+                  <label>Font Size (px)</label>
+                  <input type="number" id="prop-size" style="width:60px" onchange="updateProp('fontSize', this.value + 'px')">
+                </div>
+                <div class="prop-row">
+                  <label>Color</label>
+                  <input type="color" id="prop-color" onchange="updateProp('color', this.value)">
+                </div>
+                <div class="prop-row">
+                  <label>Bold</label>
+                  <select id="prop-weight" onchange="updateProp('fontWeight', this.value)">
+                    <option value="normal">Normal</option>
+                    <option value="bold">Bold</option>
+                    <option value="800">Extra Bold</option>
+                  </select>
+                </div>
+                <div class="prop-row" id="prop-radius-row" style="display:none;">
+                  <label>Roundness (%)</label>
+                  <input type="number" id="prop-radius" style="width:60px" onchange="updateProp('borderRadius', this.value + '%')">
+                </div>
+              </div>
+            </div>
+            
+            <div style="margin-top:auto">
+              <button class="btn btn-primary btn-full" id="btn-save" onclick="saveDesign()">
+                <i class="fas fa-save"></i> Save Design
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: Canvas -->
+          <div class="canvas-container">
+            <div class="canvas-toolbar">
+              <button class="btn btn-sm btn-outline" onclick="toggleOrientation()"><i class="fas fa-sync"></i> Flip (Portrait/Landscape)</button>
+            </div>
+            
+            <div id="design-canvas">
+              <img id="canvas-bg" src="" style="display:none;" />
+              <!-- Draggables go here -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="../assets/js/auth.js"></script>
+  <script type="module">
+    import { guardPage, supabase } from "../assets/js/auth.js";
+    import { uploadToCloudinary } from "../assets/js/upload.js";
+    
+    let schoolId = new URLSearchParams(window.location.search).get("id");
+    let selectedElement = null;
+    let elementCount = 0;
+
+    async function init() {
+      await guardPage('admin');
+      if (!schoolId) { alert("No school ID provided."); window.location.href="schools.html"; return; }
+      
+      const { data } = await supabase.from('schools').select('*').eq('id', schoolId).single();
+      if (data) {
+        document.getElementById('school-name').textContent = data.school_name || data.email;
+        if (data.id_template && data.id_template.includes('class="id-card"')) {
+            // It's a generated HTML template! We can load it back into the canvas
+            loadDesign(data.id_template);
+        }
+      }
+      
+      // Canvas events
+      const canvas = document.getElementById('design-canvas');
+      canvas.addEventListener('click', (e) => {
+        if (e.target === canvas || e.target.id === 'canvas-bg') {
+          deselectAll();
+        }
+      });
+    }
+
+    window.handleBackgroundUpload = async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const btn = e.target.previousElementSibling;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+      btn.disabled = true;
+      
+      try {
+        const url = await uploadToCloudinary(file);
+        const bg = document.getElementById('canvas-bg');
+        bg.src = url;
+        bg.style.display = 'block';
+      } catch (err) {
+        alert("Failed to upload background: " + err.message);
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    };
+
+    window.toggleOrientation = function() {
+      const canvas = document.getElementById('design-canvas');
+      if (canvas.style.width === '338px') {
+        canvas.style.width = '214px';
+        canvas.style.height = '338px';
+      } else {
+        canvas.style.width = '338px';
+        canvas.style.height = '214px';
+      }
+    };
+
+    window.addField = function(type, kind, textVal = '') {
+      const el = document.createElement('div');
+      el.className = 'draggable';
+      el.id = 'drag-' + (++elementCount);
+      el.style.left = '50px';
+      el.style.top = '50px';
+      
+      const delBtn = document.createElement('div');
+      delBtn.className = 'delete-btn';
+      delBtn.innerHTML = '<i class="fas fa-times"></i>';
+      delBtn.onclick = (e) => { e.stopPropagation(); el.remove(); deselectAll(); };
+      el.appendChild(delBtn);
+
+      if (kind === 'photo') {
+        el.classList.add('drag-photo');
+        el.dataset.type = 'photo';
+        el.innerHTML += 'Photo <br/>{{photo}}';
+        el.style.borderRadius = '50%'; // default round
+      } else {
+        const span = document.createElement('span');
+        span.className = 'drag-text';
+        span.dataset.type = 'text';
+        span.innerText = textVal;
+        span.style.fontSize = '16px';
+        span.style.color = '#000000';
+        span.style.fontWeight = 'bold';
+        el.appendChild(span);
+      }
+      
+      document.getElementById('design-canvas').appendChild(el);
+      makeDraggable(el);
+      selectElement(el);
+    };
+
+    function makeDraggable(el) {
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      el.onmousedown = dragMouseDown;
+
+      function dragMouseDown(e) {
+        e.preventDefault();
+        selectElement(el);
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+
+      function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        el.style.top = (el.offsetTop - pos2) + "px";
+        el.style.left = (el.offsetLeft - pos1) + "px";
+      }
+
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
+
+    function selectElement(el) {
+      deselectAll();
+      selectedElement = el;
+      el.classList.add('selected');
+      
+      document.getElementById('no-selection').style.display = 'none';
+      document.getElementById('prop-panel').classList.add('active');
+      
+      // Load properties
+      if (el.dataset.type === 'photo') {
+        document.getElementById('prop-radius-row').style.display = 'flex';
+        document.getElementById('prop-radius').value = parseInt(el.style.borderRadius) || 0;
+      } else {
+        document.getElementById('prop-radius-row').style.display = 'none';
+        const span = el.querySelector('span');
+        document.getElementById('prop-size').value = parseInt(span.style.fontSize) || 16;
+        document.getElementById('prop-weight').value = span.style.fontWeight || 'normal';
+      }
+    }
+
+    function deselectAll() {
+      document.querySelectorAll('.draggable').forEach(el => el.classList.remove('selected'));
+      selectedElement = null;
+      document.getElementById('no-selection').style.display = 'block';
+      document.getElementById('prop-panel').classList.remove('active');
+    }
+
+    window.updateProp = function(prop, val) {
+      if (!selectedElement) return;
+      if (selectedElement.dataset.type === 'photo') {
+        if (prop === 'borderRadius') selectedElement.style.borderRadius = val;
+      } else {
+        const span = selectedElement.querySelector('span');
+        if (span) span.style[prop] = val;
+      }
+    }
+
+    function loadDesign(htmlString) {
+      const temp = document.createElement('div');
+      temp.innerHTML = htmlString;
+      const loadedCanvas = temp.querySelector('.id-card');
+      if(!loadedCanvas) return;
+      
+      const canvas = document.getElementById('design-canvas');
+      canvas.style.width = loadedCanvas.style.width;
+      canvas.style.height = loadedCanvas.style.height;
+      
+      // Background
+      const img = loadedCanvas.querySelector('.id-bg');
+      if (img) {
+        document.getElementById('canvas-bg').src = img.src;
+        document.getElementById('canvas-bg').style.display = 'block';
+      }
+      
+      // Elements
+      const els = loadedCanvas.querySelectorAll('.id-el');
+      els.forEach(srcEl => {
+         const el = document.createElement('div');
+         el.className = 'draggable';
+         el.id = 'drag-' + (++elementCount);
+         el.style.left = srcEl.style.left;
+         el.style.top = srcEl.style.top;
+         
+         const delBtn = document.createElement('div');
+         delBtn.className = 'delete-btn';
+         delBtn.innerHTML = '<i class="fas fa-times"></i>';
+         delBtn.onclick = (e) => { e.stopPropagation(); el.remove(); deselectAll(); };
+         el.appendChild(delBtn);
+         
+         if (srcEl.classList.contains('id-photo-el')) {
+           el.classList.add('drag-photo');
+           el.dataset.type = 'photo';
+           el.innerHTML += 'Photo <br/>{{photo}}';
+           el.style.borderRadius = srcEl.style.borderRadius;
+           el.style.width = srcEl.style.width;
+           el.style.height = srcEl.style.height;
+         } else {
+           const span = document.createElement('span');
+           span.className = 'drag-text';
+           span.dataset.type = 'text';
+           span.innerText = srcEl.innerText;
+           span.style.fontSize = srcEl.style.fontSize;
+           span.style.color = srcEl.style.color;
+           span.style.fontWeight = srcEl.style.fontWeight;
+           el.appendChild(span);
+         }
+         
+         canvas.appendChild(el);
+         makeDraggable(el);
+      });
+    }
+
+    window.saveDesign = async function() {
+      const btn = document.getElementById('btn-save');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+      btn.disabled = true;
+      
+      deselectAll(); // remove selected borders
+      
+      const canvas = document.getElementById('design-canvas');
+      
+      // Build pure HTML representation
+      let finalHTML = `<div class="id-card" style="width:${canvas.style.width}; height:${canvas.style.height}; position:relative; overflow:hidden; background:#fff; border-radius:10px;">`;
+      
+      const bg = document.getElementById('canvas-bg');
+      if (bg.src && bg.style.display !== 'none') {
+        finalHTML += `<img class="id-bg" src="${bg.src}" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:0;" />`;
+      }
+      
+      const elements = document.querySelectorAll('.draggable');
+      elements.forEach(el => {
+        if (el.dataset.type === 'photo') {
+          // Replace with actual img tag that ID preview will use
+          finalHTML += `<img class="id-el id-photo-el" src="{{photo}}" style="position:absolute; left:${el.style.left}; top:${el.style.top}; width:${el.offsetWidth}px; height:${el.offsetHeight}px; border-radius:${el.style.borderRadius || '0'}; object-fit:cover; z-index:1;" onerror="this.src='https://ui-avatars.com/api/?name={{name}}&background=0ea5e9&color=fff'"/>`;
+        } else {
+          const span = el.querySelector('span');
+          finalHTML += `<div class="id-el" style="position:absolute; left:${el.style.left}; top:${el.style.top}; font-size:${span.style.fontSize}; color:${span.style.color}; font-weight:${span.style.fontWeight}; white-space:nowrap; z-index:1;">${span.innerText}</div>`;
+        }
+      });
+      
+      finalHTML += `</div>`;
+      
+      try {
+        const { error } = await supabase.from('schools').update({ id_template: finalHTML }).eq('id', schoolId);
+        if (error) throw error;
+        alert("Design saved successfully! It is now active in the Live ID Preview.");
+      } catch (err) {
+        alert("Save failed: " + err.message);
+      } finally {
+        btn.innerHTML = '<i class="fas fa-save"></i> Save Design';
+        btn.disabled = false;
+      }
+    };
+    
+    init();
+  </script>
+</body>
+</html>

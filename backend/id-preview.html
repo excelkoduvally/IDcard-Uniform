@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live ID Card Preview | Excel ID Cards</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/images/favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="../assets/css/style-app.css" />
+  <style>
+    .split-layout {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    
+    .student-list-container {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      height: calc(100vh - 200px);
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .list-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .student-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+    
+    .student-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(15,23,42,0.4);
+      margin-bottom: 0.5rem;
+    }
+    
+    .student-item:hover {
+      background: rgba(14,165,233,0.1);
+      border-color: rgba(14,165,233,0.3);
+    }
+    
+    .student-item.selected {
+      background: rgba(14,165,233,0.15);
+      border-color: var(--primary);
+    }
+    
+    .student-item img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+    
+    .student-info h4 {
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+      color: var(--text);
+    }
+    
+    .student-info p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    
+    .preview-container {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      min-height: calc(100vh - 200px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    
+    .id-card-wrapper {
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    
+    .id-card-wrapper.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    /* Default Basic Template Styles (Fallback if no custom template) */
+    .id-card {
+      width: 214px;
+      height: 338px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #333;
+    }
+    
+    .id-header {
+      background: var(--primary);
+      color: white;
+      width: 100%;
+      padding: 1rem 0;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    
+    .id-photo {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      margin-top: 1rem;
+      object-fit: cover;
+    }
+    
+    .id-body {
+      padding: 1rem;
+      text-align: center;
+      width: 100%;
+    }
+    
+    .id-name {
+      font-size: 1.2rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      color: #1e293b;
+    }
+    
+    .id-detail {
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 1rem;
+    }
+    
+    .id-footer {
+      background: #f8fafc;
+      width: 100%;
+      text-align: center;
+      padding: 0.75rem 0;
+      font-size: 0.75rem;
+      margin-top: auto;
+      border-top: 1px solid #e2e8f0;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    
+    .empty-preview {
+      text-align: center;
+      color: var(--text-muted);
+    }
+    
+    .empty-preview i {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+    
+    @media (max-width: 900px) {
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+      .student-list-container {
+        height: 400px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="../assets/images/excel_logo_transparent.png" alt="Excel Logo">
+          <span>Excel <b>Admin</b></span>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="create-user.html"><i class="fas fa-user-plus"></i> Create School</a></li>
+        <li><a href="schools.html"><i class="fas fa-school"></i> Schools</a></li>
+        <li><a href="students.html"><i class="fas fa-users"></i> Students</a></li>
+        <li><a href="admin-fields.html"><i class="fas fa-list-alt"></i> Student Fields</a></li>
+        <li><a href="id-preview.html" class="active"><i class="fas fa-id-card"></i> ID Preview</a></li>
+        <li><a href="../frontend/index.html" target="_blank"><i class="fas fa-globe"></i> View Website</a></li>
+        <li class="mobile-only"><a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      </ul>
+      <div class="sidebar-footer" style="margin-top:auto">
+        <button class="btn btn-outline btn-full" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="topbar">
+        <div class="topbar-title">Live ID Card Preview</div>
+        <div class="user-badge"><i class="fas fa-shield-alt"></i> Admin Panel</div>
+      </div>
+
+      <div class="content-area">
+        <h1 class="page-title">Live <span>Preview</span></h1>
+        <p class="page-subtitle">Select a student to preview their ID card with the active template.</p>
+
+        <div class="split-layout">
+          <!-- Left: Student List -->
+          <div class="student-list-container">
+            <div class="list-header">
+              <div class="form-group" style="margin:0;">
+                <select id="school-filter" class="form-control" style="margin-bottom: 1rem;">
+                  <option value="">Loading schools...</option>
+                </select>
+                <div class="search-wrap" style="margin:0;">
+                  <i class="fas fa-search"></i>
+                  <input type="text" id="student-search" class="form-control" placeholder="Search students...">
+                </div>
+              </div>
+            </div>
+            <div class="student-list" id="student-list">
+              <div style="text-align:center; padding: 2rem; color: var(--text-muted);">
+                <i class="fas fa-spinner fa-spin" style="font-size:2rem; margin-bottom:1rem;"></i>
+                <p>Loading students...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Live Preview -->
+          <div class="preview-container" id="preview-area">
+            <div class="empty-preview" id="empty-state">
+              <i class="fas fa-id-badge"></i>
+              <h3>Select a Student</h3>
+              <p>Choose a student from the list to see their ID card preview.</p>
+            </div>
+            
+            <div class="id-card-wrapper" id="id-card-wrapper">
+              <!-- ID Card renders here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="../assets/js/auth.js"></script>
+  <script type="module">
+    import { guardPage, supabase } from "../assets/js/auth.js";
+    
+    // Guard page
+    let currentUser;
+    async function init() {
+        currentUser = await guardPage();
+        if (!currentUser) return;
+        loadSchools();
+    }
+
+    let allStudents = [];
+    let schoolsMap = {};
+    
+    // Basic fallback template using standard placeholders
+    const defaultTemplate = `
+      <div class="id-card">
+        <div class="id-header">{{school_name}}</div>
+        <img src="{{photo}}" class="id-photo" onerror="this.src='https://ui-avatars.com/api/?name={{name}}&background=0ea5e9&color=fff'">
+        <div class="id-body">
+          <div class="id-name">{{name}}</div>
+          <div class="id-detail"><span>Class:</span> <span>{{class}}</span></div>
+          <div class="id-detail"><span>Admn No:</span> <span>{{admission_no}}</span></div>
+          <div class="id-detail"><span>Phone:</span> <span>{{phone}}</span></div>
+        </div>
+        <div class="id-footer">
+          Valid for Academic Year 2026-2027
+        </div>
+      </div>
+    `;
+
+    async function loadSchools() {
+        try {
+            const { data, error } = await supabase.from('schools').select('id, school_name, email, id_template');
+            if (error) throw error;
+            
+            const select = document.getElementById('school-filter');
+            select.innerHTML = '<option value="">All Schools</option>';
+            
+            data.forEach(sch => {
+                schoolsMap[sch.id] = sch;
+                select.innerHTML += `<option value="${sch.id}">${sch.school_name || sch.email}</option>`;
+            });
+            
+            select.addEventListener('change', loadStudents);
+            document.getElementById('student-search').addEventListener('input', renderStudentList);
+            
+            loadStudents();
+        } catch(e) {
+            console.error("Error loading schools", e);
+        }
+    }
+
+    async function loadStudents() {
+        const listEl = document.getElementById('student-list');
+        listEl.innerHTML = '<div style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+        
+        const schoolId = document.getElementById('school-filter').value;
+        
+        try {
+            let query = supabase.from('students').select('*').order('created_at', { ascending: false });
+            if (schoolId) query = query.eq('school_id', schoolId);
+            else if (currentUser.email !== 'excelkdly@gmail.com') {
+                query = query.eq('school_id', currentUser.id);
+            }
+            
+            const { data, error } = await query;
+            if (error) throw error;
+            
+            allStudents = data || [];
+            
+            // Parse student_data JSONB if needed
+            allStudents.forEach(s => {
+                if (typeof s.student_data === 'string') {
+                    try { s.student_data = JSON.parse(s.student_data); } catch(e) { s.student_data = {}; }
+                }
+                if (!s.student_data) s.student_data = {};
+            });
+            
+            renderStudentList();
+        } catch(e) {
+            console.error("Error loading students", e);
+            listEl.innerHTML = `<div class="alert alert-error show">Error: ${e.message}</div>`;
+        }
+    }
+
+    function renderStudentList() {
+        const term = document.getElementById('student-search').value.toLowerCase();
+        const listEl = document.getElementById('student-list');
+        
+        const filtered = allStudents.filter(s => {
+            const n = (s.name || s.student_data?.name || "").toLowerCase();
+            const a = (s.admission_no || s.student_data?.admission_no || "").toLowerCase();
+            return n.includes(term) || a.includes(term);
+        });
+        
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted)">No students found.</div>';
+            return;
+        }
+        
+        listEl.innerHTML = filtered.map(s => {
+            const photo = s.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name||'Student')}&background=1e293b&color=fff`;
+            const cls = s.class || s.student_data?.class || "N/A";
+            const adm = s.admission_no || s.student_data?.admission_no || s.student_data?.['Admission No'] || "-";
+            return `
+              <div class="student-item" onclick="selectStudent('${s.id}')" id="s-item-${s.id}">
+                <img src="${photo}" alt="Photo">
+                <div class="student-info">
+                  <h4>${s.name || s.student_data?.name || "Unknown"}</h4>
+                  <p>Class: ${cls} | Admn: ${adm}</p>
+                </div>
+              </div>
+            `;
+        }).join('');
+    }
+
+    window.selectStudent = function(id) {
+        // Update UI selection
+        document.querySelectorAll('.student-item').forEach(el => el.classList.remove('selected'));
+        const item = document.getElementById(`s-item-${id}`);
+        if(item) item.classList.add('selected');
+        
+        const student = allStudents.find(s => s.id === id);
+        if (!student) return;
+        
+        updatePreview(student);
+    }
+
+    function updatePreview(student) {
+        document.getElementById('empty-state').style.display = 'none';
+        const wrapper = document.getElementById('id-card-wrapper');
+        
+        // Hide briefly for animation
+        wrapper.classList.remove('visible');
+        
+        setTimeout(() => {
+            // Get school template or use default
+            const school = schoolsMap[student.school_id] || {};
+            let template = school.id_template || defaultTemplate;
+            
+            // Extract values safely with fallbacks
+            const getVal = (key) => {
+                if (student[key]) return student[key];
+                if (student.student_data && student.student_data[key]) return student.student_data[key];
+                // Try case-insensitive matching for keys like 'phone' -> 'Phone Number'
+                if (student.student_data) {
+                    for (let k in student.student_data) {
+                        if (k.toLowerCase().includes(key) || key.includes(k.toLowerCase())) {
+                            return student.student_data[k];
+                        }
+                    }
+                }
+                return "-";
+            };
+
+            const sName = getVal('name') || "Unknown";
+            const sClass = getVal('class');
+            const sAdm = getVal('admission_no');
+            const sPhone = getVal('phone') !== "-" ? getVal('phone') : getVal('parent_phone');
+            const sPhoto = student.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sName)}&background=0ea5e9&color=fff`;
+            const schName = school.school_name || "EXCEL ACADEMY";
+
+            // Replace placeholders
+            const html = template
+                .replaceAll("{{name}}", sName)
+                .replaceAll("{{class}}", sClass)
+                .replaceAll("{{admission_no}}", sAdm)
+                .replaceAll("{{phone}}", sPhone)
+                .replaceAll("{{photo}}", sPhoto)
+                .replaceAll("{{school_name}}", schName);
+
+            wrapper.innerHTML = html;
+            wrapper.classList.add('visible');
+        }, 150);
+    }
+
+    window.handleLogout = async function(e) {
+      e.preventDefault();
+      await supabase.auth.signOut();
+      window.location.href = "login.html";
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -59,6 +59,7 @@
                   <th>Address</th>
                   <th>Created</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="schools-tbody">
@@ -87,9 +88,11 @@
         if (error) throw error;
 
         if (!data || data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>No schools registered yet.</p></div></td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>No schools registered yet.</p></div></td></tr>`;
           return;
         }
+
+        window.schoolsData = data;
 
         tbody.innerHTML = data.map(d => {
           const date = d.created_at ? new Date(d.created_at).toLocaleDateString() : 'N/A';
@@ -100,18 +103,18 @@
             <td>${d.address || 'N/A'}</td>
             <td>${date}</td>
             <td><span class="badge badge-green">${d.status || 'Active'}</span></td>
+            <td>
+              <a href="template-editor.html?id=${d.id}" class="btn btn-sm btn-outline">
+                <i class="fas fa-paint-brush"></i> Design Template
+              </a>
+            </td>
           </tr>`;
         }).join("");
       } catch(err) {
-        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
       }
     }
     loadSchools();
   </script>
 </body>
 </html>
-
-
-
-
-
