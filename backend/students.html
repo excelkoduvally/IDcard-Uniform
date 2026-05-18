@@ -168,6 +168,8 @@
                 class="fas fa-file-import"></i> Bulk Import</button>
             <button class="btn btn-success" id="btn-export-excel" onclick="downloadExcel()"><i
                 class="fas fa-file-excel"></i> Export Excel</button>
+            <button class="btn btn-warning" id="btn-export-bundle" onclick="downloadSchoolBundle()"><i
+                class="fas fa-box-open"></i> Export School Bundle</button>
             <button class="btn btn-info" id="btn-export-photos" onclick="downloadPhotos()"><i
                 class="fas fa-file-archive"></i> Download Photos</button>
             <button class="btn btn-outline" onclick="loadStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
@@ -291,18 +293,27 @@
 
     guardPage('admin');
 
-    let allStudents = [];
-    let filteredStudents = [];
-    let globalFields = [];
-    
-    // Pagination & Sorting State
-    let currentPage = 0;
-    const pageSize = 50;
-    let totalCount = 0;
-    let sortKey = 'created_at';
-    let sortAsc = false;
-    let searchTimeout = null;
-    let currentAbortController = null;
+    const state = {
+      students: [],
+      fields: [],
+      page: 0,
+      pageSize: 50,
+      totalCount: 0,
+      sortKey: 'created_at',
+      sortAsc: false,
+      abort: null,
+      searchTimeout: null
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const $$ = (q) => document.querySelector(q);
+    const $$$ = (q) => document.querySelectorAll(q);
+
+    // setText UI helper
+    function setText(id, val) {
+      const el = $(id);
+      if (el) el.textContent = val;
+    }
 
     // HTML Escaping helper to prevent XSS
     function escapeHtml(str = "") {
@@ -315,46 +326,55 @@
         .replace(/'/g, "&#039;");
     }
 
-    // Helper: compress/resize image to blob using canvas before embedding in Excel
-    async function compressImageToBlob(url, maxDim = 150) {
-      try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          const objectUrl = URL.createObjectURL(blob);
-          img.onload = () => {
-            URL.revokeObjectURL(objectUrl); // cleanup
-            const canvas = document.createElement('canvas');
-            let w = img.width;
-            let h = img.height;
-            if (w > h) {
-              if (w > maxDim) {
-                h = Math.round((h * maxDim) / w);
-                w = maxDim;
-              }
-            } else {
-              if (h > maxDim) {
-                w = Math.round((w * maxDim) / h);
-                h = maxDim;
-              }
-            }
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, w, h);
-            canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.75);
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(objectUrl); // cleanup
-            reject(new Error("Image loading failed"));
-          };
-          img.src = objectUrl;
-        });
-      } catch (e) {
-        throw e;
-      }
+    // Get fallback-safe photo element
+    function getPhoto(s) {
+      const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=0ea5e9&color=fff`;
+      return s.photo_url 
+        ? `<img src="${escapeHtml(s.photo_url)}" class="td-photo" loading="lazy" onerror="this.onerror=null; this.src='${fallbackUrl}'">` 
+        : `<div class="td-photo-placeholder"><i class="fas fa-user"></i></div>`;
     }
+
+    function normalizeStudent(s) {
+      let data = s.student_data;
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch { data = {}; }
+      }
+      data = data || {};
+
+      if (s.student_field_values) {
+        s.student_field_values.forEach(fv => {
+          const key = fv?.student_fields?.field_key;
+          if (key) data[key] = fv.value;
+        });
+      }
+
+      return {
+        ...s,
+        student_data: data,
+        name: s.name || data.Name || "No Name",
+        student_class: s.class || data.Class || "N/A",
+        school_name: s.schools?.school_name || "Unknown",
+        school_email: s.schools?.email || "Unknown"
+      };
+    }
+
+    function buildRow(s, fields) {
+      const row = {
+        "Admission No": s.admission_no || "",
+        Name: s.name,
+        Class: s.student_class,
+        School: s.school_name,
+        Date_Added: s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A'
+      };
+
+      fields.forEach(f => {
+        row[f.name] = s.student_data?.[f.key] || "-";
+      });
+
+      return row;
+    }
+
+    const STUDENT_SELECT = 'id,name,class,created_at,photo_url,school_id,student_data,parent_phone,dob,schools(id,email,school_name),student_field_values(value,student_fields(field_name,field_key))';
 
     // Load filter dropdowns once on start
     async function initFilters() {
@@ -362,20 +382,19 @@
         const [schoolsRes, fieldsRes, classesRes] = await Promise.all([
           supabase.from('schools').select('id, email, school_name'),
           supabase.from('student_fields').select('id, field_name, field_key'),
-          // Fetch distinct classes from students
           supabase.from('students').select('class')
         ]);
 
         if (schoolsRes.data) {
-          const selObj = document.getElementById("school-filter");
+          const selObj = $("school-filter");
           selObj.innerHTML = '<option value="">All Schools</option>';
           
-          const importSelObj = document.getElementById("import-school-select");
+          const importSelObj = $("import-school-select");
           if (importSelObj) {
             importSelObj.innerHTML = '<option value="">Choose School...</option>';
           }
 
-          const pillsEl = document.getElementById("school-pills");
+          const pillsEl = $("school-pills");
           pillsEl.innerHTML = '';
           
           const btnAll = document.createElement("button");
@@ -406,7 +425,7 @@
         }
 
         if (fieldsRes.data) {
-          globalFields = fieldsRes.data.map(f => ({
+          state.fields = fieldsRes.data.map(f => ({
             name: f.field_name || f.field_key,
             key: f.field_key
           }));
@@ -417,7 +436,7 @@
           classesRes.data.forEach(s => {
             if (s.class) classesSet.add(s.class);
           });
-          const clsObj = document.getElementById("class-filter");
+          const clsObj = $("class-filter");
           clsObj.innerHTML = '<option value="">All Classes</option>';
           Array.from(classesSet).sort().forEach(c => {
             clsObj.appendChild(new Option(c, c));
@@ -428,109 +447,68 @@
       }
     }
 
+    function loadingRow() {
+      return `<tr><td colspan="100%"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading records...</p></div></td></tr>`;
+    }
+
+    const getFilters = () => ({
+      school: $("school-filter").value,
+      class: $("class-filter").value,
+      search: $("search-input").value.trim()
+    });
+
+    function applyFiltersToQuery(q) {
+      const f = getFilters();
+
+      if (f.school) q = q.eq('school_id', f.school);
+      if (f.class) q = q.eq('class', f.class);
+      if (f.search) {
+        q = q.or(`name.ilike.%${f.search}%,admission_no.ilike.%${f.search}%`);
+      }
+
+      return q
+        .order(state.sortKey === 'created_at' ? 'created_at' : 'name', { ascending: state.sortAsc })
+        .range(state.page * state.pageSize, (state.page + 1) * state.pageSize - 1);
+    }
+
     // Main: fetch paginated students
     window.loadStudents = async function () {
-      const tbody = document.getElementById("table-body");
-      tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading records...</p></div></td></tr>`;
+      const tbody = $("table-body");
+      tbody.innerHTML = loadingRow();
 
-      if (currentAbortController) {
-        currentAbortController.abort();
+      if (state.abort) {
+        state.abort.abort();
       }
-      currentAbortController = new AbortController();
+      state.abort = new AbortController();
 
       try {
-        const schId = document.getElementById("school-filter").value;
-        const cls = document.getElementById("class-filter").value;
-        const search = document.getElementById("search-input").value.trim();
-
         let query = supabase
           .from('students')
-          .select(`
-            id,
-            name,
-            class,
-            created_at,
-            photo_url,
-            school_id,
-            student_data,
-            parent_phone,
-            dob,
-            schools (
-              id,
-              email,
-              school_name
-            ),
-            student_field_values (
-              value,
-              student_fields (
-                field_name,
-                field_key
-              )
-            )
-          `, { count: 'exact' })
-          .abortSignal(currentAbortController.signal);
+          .select(STUDENT_SELECT, { count: 'exact' })
+          .abortSignal(state.abort.signal);
 
-        if (schId) {
-          query = query.eq('school_id', schId);
-        }
-        if (cls) {
-          query = query.eq('class', cls);
-        }
-        if (search) {
-          query = query.ilike('name', `%${search}%`);
-        }
-
-        // Apply sorting
-        query = query.order(sortKey === 'created_at' ? 'created_at' : 'name', { ascending: sortAsc });
-
-        // Apply server pagination range
-        const start = currentPage * pageSize;
-        const end = start + pageSize - 1;
-        query = query.range(start, end);
+        query = applyFiltersToQuery(query);
 
         const { data, count, error } = await query;
         if (error) throw error;
 
-        allStudents = data || [];
-        totalCount = count || 0;
-        filteredStudents = [...allStudents]; // Already server filtered
-
-        // Parse student JSON values & relations cleanly
-        allStudents.forEach(s => {
-          s.school_email = s.schools?.email || 'Unknown';
-          s.school_name = s.schools?.school_name || 'Unknown';
-
-          if (typeof s.student_data === 'string') {
-            try { s.student_data = JSON.parse(s.student_data); } catch (e) { s.student_data = {}; }
-          }
-          if (!s.student_data) s.student_data = {};
-
-          if (s.student_field_values) {
-            s.student_field_values.forEach(fv => {
-              if (fv.student_fields) {
-                s.student_data[fv.student_fields.field_key] = fv.value;
-                if (fv.student_fields.field_key === 'class' && !s.class) {
-                  s.class = fv.value;
-                }
-              }
-            });
-          }
-        });
+        state.students = (data || []).map(normalizeStudent);
+        state.totalCount = count || 0;
 
         // Update record count & pagination indicators
-        const startRecord = totalCount > 0 ? (currentPage * pageSize) + 1 : 0;
-        const endRecord = Math.min((currentPage + 1) * pageSize, totalCount);
-        document.getElementById("record-count").textContent = `${totalCount} Records`;
-        document.getElementById("page-indicator").textContent = `Showing ${startRecord}–${endRecord} of ${totalCount} students`;
+        const start = state.page * state.pageSize + 1;
+        const end = Math.min(start + state.pageSize - 1, state.totalCount);
+        setText("record-count", `${state.totalCount} Records`);
+        setText("page-indicator", `Showing ${state.totalCount > 0 ? start : 0}–${end} of ${state.totalCount} students`);
         
         // Toggle pagination buttons
-        document.getElementById("prev-page-btn").disabled = currentPage === 0;
-        document.getElementById("next-page-btn").disabled = (currentPage + 1) * pageSize >= totalCount;
+        $("prev-page-btn").disabled = state.page === 0;
+        $("next-page-btn").disabled = (state.page + 1) * state.pageSize >= state.totalCount;
 
         renderTable();
       } catch (err) {
         if (err.name === 'AbortError' || err.message === 'Fetch is aborted' || err.message === 'aborted') {
-          return; // Ignore aborted requests silently
+          return;
         }
         tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
       }
@@ -538,13 +516,13 @@
 
     // Debounced filter application
     window.applyFilters = function () {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        currentPage = 0; // Reset pagination on filter change
+      clearTimeout(state.searchTimeout);
+      state.searchTimeout = setTimeout(() => {
+        state.page = 0; // Reset pagination on filter change
         
         // Highlight active pills visually
-        const schId = document.getElementById("school-filter").value;
-        document.querySelectorAll(".pill").forEach(p => {
+        const schId = $("school-filter").value;
+        $$$(".pill").forEach(p => {
           const pillText = p.textContent.toLowerCase();
           if (!schId && pillText === "all") {
             p.classList.add("active");
@@ -559,33 +537,61 @@
 
     // Pagination trigger
     window.changePage = function (direction) {
-      currentPage += direction;
+      state.page += direction;
       loadStudents();
     };
 
     // Sort trigger
     window.sortColumn = function (key) {
-      if (sortKey === key) {
-        sortAsc = !sortAsc;
+      if (state.sortKey === key) {
+        state.sortAsc = !state.sortAsc;
       } else {
-        sortKey = key;
-        sortAsc = true;
+        state.sortKey = key;
+        state.sortAsc = true;
       }
       loadStudents();
     };
 
+    const buildRowHTML = (s, customHeaders) => {
+      const schoolDisplay = s.school_name || (s.school_email && s.school_email !== 'Unknown' ? s.school_email.split("@")[0] : "Unknown");
+
+      let rowHTML = `<tr>
+        <td>${getPhoto(s)}</td>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td><span class="badge badge-blue">${escapeHtml(s.student_class)}</span></td>
+        <td style="color:var(--text-muted)">${escapeHtml(schoolDisplay.toUpperCase())}</td>
+        <td>${escapeHtml(s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A')}</td>`;
+
+      customHeaders.forEach(h => {
+        const val = s.student_data && s.student_data[h.key] ? s.student_data[h.key] : '-';
+        rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${escapeHtml(val)}</td>`;
+      });
+
+      rowHTML += `<td>
+          <button class="btn btn-primary btn-sm" onclick="openPhotoUpload('${s.id}')" title="Upload Photo" style="margin-right: 4px;">
+            <i class="fas fa-camera"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')" title="Delete Student">
+            <i class="fas fa-trash"></i>
+          </button>
+        </td>
+      </tr>`;
+
+      return rowHTML;
+    };
+
     // Render client UI table dynamically
     function renderTable() {
-      const thead = document.querySelector("#students-table thead");
-      const tbody = document.getElementById("table-body");
+      const thead = $$("#students-table thead");
+      const tbody = $("table-body");
 
-      if (filteredStudents.length === 0) {
+      if (state.students.length === 0) {
         tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><p>No records found.</p></div></td></tr>`;
         return;
       }
 
       // Filter custom headers (excluding core fields to prevent duplication)
-      const customHeaders = globalFields.filter(f => {
+      const customHeaders = state.fields.filter(f => {
         const fl = f.name.toLowerCase();
         return fl !== 'name' && fl !== 'class';
       });
@@ -593,10 +599,10 @@
       // Build Headers with Clickable Sort Triggers
       let theadHTML = `<tr>
         <th>Photo</th>
-        <th onclick="sortColumn('name')">Name <i class="fas ${sortKey === 'name' ? (sortAsc ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'}"></i></th>
+        <th onclick="sortColumn('name')">Name <i class="fas ${state.sortKey === 'name' ? (state.sortAsc ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'}"></i></th>
         <th>Class</th>
         <th>School</th>
-        <th onclick="sortColumn('created_at')">Date <i class="fas ${sortKey === 'created_at' ? (sortAsc ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'}"></i></th>`;
+        <th onclick="sortColumn('created_at')">Date <i class="fas ${state.sortKey === 'created_at' ? (state.sortAsc ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'}"></i></th>`;
       
       customHeaders.forEach(h => {
         theadHTML += `<th>${escapeHtml(h.name)}</th>`;
@@ -604,44 +610,11 @@
       theadHTML += `<th>Action</th></tr>`;
       thead.innerHTML = theadHTML;
 
-      tbody.innerHTML = filteredStudents.map(s => {
-        const name = s.name || s.student_data?.Name || "No Name";
-        const cls = s.class || s.student_data?.Class || "N/A";
-        const dateStr = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
-        const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0ea5e9&color=fff`;
-
-        const photoImg = s.photo_url 
-          ? `<img src="${escapeHtml(s.photo_url)}" class="td-photo" loading="lazy" onerror="this.onerror=null; this.src='${fallbackUrl}'">` 
-          : `<div class="td-photo-placeholder"><i class="fas fa-user"></i></div>`;
-
-        let rowHTML = `<tr>
-          <td>${photoImg}</td>
-          <td><strong>${escapeHtml(name)}</strong></td>
-          <td><span class="badge badge-blue">${escapeHtml(cls)}</span></td>
-          <td style="color:var(--text-muted)">${escapeHtml((s.school_name || s.school_email.split("@")[0]).toUpperCase())}</td>
-          <td>${escapeHtml(dateStr)}</td>`;
-
-        customHeaders.forEach(h => {
-          const val = s.student_data && s.student_data[h.key] ? s.student_data[h.key] : '-';
-          rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${escapeHtml(val)}</td>`;
-        });
-
-        rowHTML += `<td>
-            <button class="btn btn-primary btn-sm" onclick="openPhotoUpload('${s.id}')" title="Upload Photo" style="margin-right: 4px;">
-              <i class="fas fa-camera"></i>
-            </button>
-            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')" title="Delete Student">
-              <i class="fas fa-trash"></i>
-            </button>
-          </td>
-        </tr>`;
-
-        return rowHTML;
-      }).join('');
+      tbody.innerHTML = state.students.map(s => buildRowHTML(s, customHeaders)).join('');
     }
 
     window.openPhotoUpload = function(studentId) {
-      const input = document.getElementById("student-photo-input");
+      const input = $("student-photo-input");
 
       input.onchange = async function(e) {
         const file = e.target.files[0];
@@ -722,47 +695,71 @@
 
     // Batch downloading photos with parallel batches of 10
     window.downloadPhotos = async function () {
-      if (filteredStudents.length === 0) {
-        alert("No student photos available to download.");
-        return;
-      }
+      const schoolId = $("school-filter").value;
+      let targetStudents = [];
 
-      const btn = document.getElementById("btn-export-photos");
+      const btn = $("btn-export-photos");
       const btnText = btn.innerHTML;
       btn.disabled = true;
 
       try {
+        if (schoolId) {
+          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Fetching all student records...`;
+          const { data: students, error: fetchErr } = await supabase
+            .from('students')
+            .select(`
+              id,
+              name,
+              class,
+              photo_url,
+              admission_no,
+              student_data,
+              schools (
+                school_name
+              )
+            `)
+            .eq('school_id', schoolId);
+
+          if (fetchErr) throw fetchErr;
+          targetStudents = (students || []).map(normalizeStudent);
+        } else {
+          targetStudents = state.students;
+        }
+
+        if (targetStudents.length === 0) {
+          alert("No student photos available to download.");
+          return;
+        }
+
         const zip = new window.JSZip();
         const batchSize = 10;
-        const total = filteredStudents.length;
+        const total = targetStudents.length;
 
         for (let i = 0; i < total; i += batchSize) {
-          const batch = filteredStudents.slice(i, i + batchSize);
+          const batch = targetStudents.slice(i, i + batchSize);
           btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Downloading ${i + 1}/${total}...`;
 
           await Promise.all(batch.map(async (student) => {
             if (!student.photo_url) return;
-            const name = student.name || student.student_data?.Name || "Student";
-            const filename = name.replace(/\s+/g, "_") + ".jpg";
+            const filename = (student.admission_no || student.id) + ".jpg";
             try {
               const response = await fetch(student.photo_url);
               if (!response.ok) throw new Error("Fetch failed");
               const blob = await response.blob();
               zip.file(filename, blob);
             } catch (err) {
-              console.warn("Failed downloading photo for", name, err);
+              console.warn("Failed downloading photo for", student.name, err);
             }
           }));
         }
 
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Bundling ZIP...`;
         const content = await zip.generateAsync({ type: "blob" });
-        const link = document.createElement("a");
         const zipUrl = URL.createObjectURL(content);
+        const link = document.createElement("a");
         link.href = zipUrl;
 
-        const sch = document.getElementById("school-filter").value;
-        const typeStr = sch ? "School" : "All";
+        const typeStr = schoolId ? "School" : "All";
         link.download = `Photos_${typeStr}.zip`;
         link.click();
 
@@ -779,102 +776,56 @@
 
     // Parallel compressed Excel exports preventing memory blowouts
     window.downloadExcel = async function () {
-      if (filteredStudents.length === 0) {
-        alert("No student records available to export.");
-        return;
-      }
+      const schoolId = $("school-filter").value;
+      let targetStudents = [];
 
-      const btn = document.getElementById("btn-export-excel");
+      const btn = $("btn-export-excel");
       const btnText = btn.innerHTML;
       btn.disabled = true;
 
       try {
+        if (schoolId) {
+          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Fetching all student records...`;
+          const { data: students, error: fetchErr } = await supabase
+            .from('students')
+            .select(STUDENT_SELECT)
+            .eq('school_id', schoolId);
+
+          if (fetchErr) throw fetchErr;
+          targetStudents = (students || []).map(normalizeStudent);
+        } else {
+          targetStudents = state.students;
+        }
+
+        if (targetStudents.length === 0) {
+          alert("No student records available to export.");
+          return;
+        }
+
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet("Students");
 
-        const customFields = globalFields.filter(f => {
-          const fl = f.name.toLowerCase();
-          return fl !== 'name' && fl !== 'class';
-        });
-        const headers = ["Photo", "Name", "Class", "School", "Date_Added", ...customFields.map(f => f.name)];
+        const fields = state.fields.filter(f => !['name','class'].includes(f.name.toLowerCase()));
+        const headers = ["Admission No", "Name", "Class", "School", "Date_Added", ...fields.map(f => f.name)];
 
         worksheet.columns = headers.map(h => ({
           header: h,
           key: h,
-          width: h === 'Photo' ? 12 : 20
+          width: 20
         }));
 
-        const total = filteredStudents.length;
-        const batchSize = 10;
-
-        for (let i = 0; i < total; i += batchSize) {
-          const batch = filteredStudents.slice(i, i + batchSize);
-          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing ${i + 1}/${total}...`;
-
-          const rowPromises = batch.map(async (s, index) => {
-            const rowIndex = i + index + 1;
-            const name = s.name || s.student_data?.Name || "No Name";
-            const cls = s.class || s.student_data?.Class || "N/A";
-            const dateStr = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
-
-            const rowData = {
-              Name: name,
-              Class: cls,
-              School: s.school_name || "Unknown",
-              Date_Added: dateStr
-            };
-
-            customFields.forEach(f => {
-              rowData[f.name] = s.student_data && s.student_data[f.key] ? s.student_data[f.key] : '-';
-            });
-
-            return { s, rowData, rowIndex };
-          });
-
-          const resolvedRows = await Promise.all(rowPromises);
-
-          for (const item of resolvedRows) {
-            const row = worksheet.addRow(item.rowData);
-            row.height = 65;
-
-            if (item.s.photo_url) {
-              try {
-                // Compress & resize image to 150px before embedding to avoid memory crash
-                const compressedBlob = await compressImageToBlob(item.s.photo_url, 150);
-                
-                const base64 = await new Promise((resolve) => {
-                  const reader = new FileReader();
-                  reader.onloadend = () => resolve(reader.result);
-                  reader.readAsDataURL(compressedBlob);
-                });
-
-                const imageId = workbook.addImage({
-                  base64: base64,
-                  extension: 'jpeg',
-                });
-
-                worksheet.addImage(imageId, {
-                  tl: { col: 0.1, row: row.number - 0.9 },
-                  ext: { width: 60, height: 60 },
-                  editAs: 'oneCell'
-                });
-              } catch (e) {
-                console.warn("Failed embedding photo in Excel for", item.s.name, e);
-              }
-            }
-          }
+        for (const s of targetStudents) {
+          worksheet.addRow(buildRow(s, fields));
         }
 
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving file...`;
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
-        const schId = document.getElementById("school-filter").value;
-        const typeStr = schId ? "Filtered" : "All_Schools";
-
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
+        const typeStr = schoolId ? "School" : "All";
         a.download = `Students_Export_${typeStr}.xlsx`;
         a.click();
         setTimeout(() => {
@@ -882,6 +833,101 @@
         }, 1000);
       } catch (err) {
         alert("Excel export failed: " + err.message);
+      } finally {
+        btn.innerHTML = btnText;
+        btn.disabled = false;
+      }
+    };
+
+    // Single comprehensive school bundle exporter (Excel data + Photos packaged in ZIP)
+    window.downloadSchoolBundle = async function () {
+      const schoolId = $("school-filter").value;
+
+      if (!schoolId) {
+        alert("Please select a school first using the school filter dropdown.");
+        return;
+      }
+
+      const btn = $("btn-export-bundle");
+      const btnText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Fetching all student records...`;
+
+      try {
+        const { data: students, error: fetchErr } = await supabase
+          .from('students')
+          .select(STUDENT_SELECT)
+          .eq('school_id', schoolId);
+
+        if (fetchErr) throw fetchErr;
+
+        if (!students || students.length === 0) {
+          alert("No students found for the selected school.");
+          return;
+        }
+
+        const normalized = students.map(normalizeStudent);
+
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generating bundle...`;
+
+        const zip = new JSZip();
+        const schoolName = normalized[0].school_name?.replace(/\s+/g, "_") || "School";
+        const folder = zip.folder(schoolName);
+        const photoFolder = folder.folder("photos");
+
+        // 1. CREATE EXCEL FILE
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Students");
+
+        const fields = state.fields.filter(f => !['name','class'].includes(f.name.toLowerCase()));
+        const headers = ["Admission No", "Name", "Class", "School", "Date_Added", ...fields.map(f => f.name)];
+
+        worksheet.columns = headers.map(h => ({
+          header: h,
+          key: h,
+          width: 20
+        }));
+
+        // 2. ADD DATA + PHOTOS IN PARALLEL BATCHES
+        const batchSize = 10;
+        for (let i = 0; i < normalized.length; i += batchSize) {
+          const batch = normalized.slice(i, i + batchSize);
+          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Downloading photos ${i + 1}/${normalized.length}...`;
+
+          await Promise.all(batch.map(async (s) => {
+            worksheet.addRow(buildRow(s, fields));
+
+            if (s.photo_url) {
+              try {
+                const res = await fetch(s.photo_url);
+                const blob = await res.blob();
+                const fileName = (s.admission_no || s.id) + ".jpg";
+                photoFolder.file(fileName, blob);
+              } catch (e) {
+                console.warn("Failed fetching student photo for", s.name, e);
+              }
+            }
+          }));
+        }
+
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Creating ZIP archive...`;
+        const excelBuffer = await workbook.xlsx.writeBuffer();
+        folder.file("students.xlsx", excelBuffer);
+
+        const content = await zip.generateAsync({ type: "blob" });
+        const zipUrl = URL.createObjectURL(content);
+
+        const a = document.createElement("a");
+        a.href = zipUrl;
+        a.download = `${schoolName}_Student_Bundle.zip`;
+        a.click();
+
+        setTimeout(() => {
+          URL.revokeObjectURL(zipUrl);
+        }, 1000);
+
+      } catch (err) {
+        alert("School bundle export failed: " + err.message);
       } finally {
         btn.innerHTML = btnText;
         btn.disabled = false;
@@ -1206,117 +1252,136 @@
       let duplicateCount = 0;
       let failCount = 0;
 
-      log.innerHTML += `Fetching existing student admission records...<br/>`;
-      const { data: existingStudents, error: fetchErr } = await supabase
-        .from('students')
-        .select('admission_no')
-        .eq('school_id', targetSchoolId);
+      // Prepare all student insert payloads and preserve mappings
+      const allStudentsPayloads = [];
+      const chunkRowsMapping = [];
+      const seenSpreadsheetAdmNos = new Set();
 
-      if (fetchErr) {
-        log.innerHTML += `<span style="color:#ef4444">Error loading existing students: ${fetchErr.message}</span><br/>`;
-        finishBtn.removeAttribute('disabled');
-        return;
-      }
+      importRows.forEach((row, i) => {
+        const admissionVal = String(row[admissionMapIdx] === undefined || row[admissionMapIdx] === null ? '' : row[admissionMapIdx]).trim();
+        const nameVal = String(row[nameMapIdx] === undefined || row[nameMapIdx] === null ? '' : row[nameMapIdx]).trim();
+        const classVal = String(row[classMapIdx] === undefined || row[classMapIdx] === null ? '' : row[classMapIdx]).trim();
 
-      const existingAdmNos = new Set((existingStudents || []).map(s => String(s.admission_no || '').trim().toLowerCase()));
-      log.innerHTML += `Loaded ${existingAdmNos.size} existing admission numbers.<br/>`;
-
-      const chunkSize = 100;
-      for (let chunkStart = 0; chunkStart < importRows.length; chunkStart += chunkSize) {
-        const chunk = importRows.slice(chunkStart, chunkStart + chunkSize);
-        const studentsBatch = [];
-        const chunkRows = [];
-
-        chunk.forEach((row, chunkOffset) => {
-          const globalIdx = chunkStart + chunkOffset;
-          const admissionVal = String(row[admissionMapIdx] === undefined || row[admissionMapIdx] === null ? '' : row[admissionMapIdx]).trim();
-          const nameVal = String(row[nameMapIdx] === undefined || row[nameMapIdx] === null ? '' : row[nameMapIdx]).trim();
-          const classVal = String(row[classMapIdx] === undefined || row[classMapIdx] === null ? '' : row[classMapIdx]).trim();
-
-          if (!admissionVal) {
-            failCount++;
-            log.innerHTML += `<span style="color:#ef4444">Row ${globalIdx + 2}: Skipped (Blank Admission Number)</span><br/>`;
-            return;
-          }
-
-          if (existingAdmNos.has(admissionVal.toLowerCase())) {
-            duplicateCount++;
-            log.innerHTML += `<span style="color:#eab308">Row ${globalIdx + 2}: Skipped (Duplicate Admission No: ${admissionVal})</span><br/>`;
-            return;
-          }
-
-          const studentData = {};
-          selectElements.forEach(select => {
-            const key = select.dataset.fieldKey;
-            const valIdx = select.value;
-            if (valIdx !== '') {
-              studentData[key] = String(row[parseInt(valIdx)] === undefined || row[parseInt(valIdx)] === null ? '' : row[parseInt(valIdx)]).trim();
-            }
-          });
-
-          const insertPayload = {
-            school_id: targetSchoolId,
-            name: nameVal || "Unknown",
-            class: classVal || "",
-            admission_no: admissionVal || "",
-            photo_url: null,
-            student_data: studentData
-          };
-
-          if (studentData['parent_phone']) insertPayload.parent_phone = studentData['parent_phone'];
-          if (studentData['dob']) insertPayload.dob = studentData['dob'];
-
-          studentsBatch.push(insertPayload);
-          chunkRows.push({ row, admissionVal });
-          existingAdmNos.add(admissionVal.toLowerCase());
-        });
-
-        if (studentsBatch.length > 0) {
-          try {
-            const { data: insertedStudents, error: dbErr } = await supabase
-              .from('students')
-              .insert(studentsBatch)
-              .select();
-
-            if (dbErr) throw dbErr;
-
-            const insertedLookup = new Map((insertedStudents || []).map(s => [String(s.admission_no || '').trim().toLowerCase(), s.id]));
-            const fieldValuesRows = [];
-
-            chunkRows.forEach(({ row, admissionVal }) => {
-              const studentId = insertedLookup.get(admissionVal.toLowerCase());
-              if (studentId) {
-                for (const key in mappings) {
-                  const mapInfo = mappings[key];
-                  if (mapInfo.fieldId) {
-                    const val = String(row[mapInfo.index] === undefined || row[mapInfo.index] === null ? '' : row[mapInfo.index]).trim();
-                    if (val) {
-                      fieldValuesRows.push({
-                        student_id: studentId,
-                        field_id: mapInfo.fieldId,
-                        value: val
-                      });
-                    }
-                  }
-                }
-              }
-            });
-
-            if (fieldValuesRows.length > 0) {
-              const { error: fvErr } = await supabase.from('student_field_values').insert(fieldValuesRows);
-              if (fvErr) console.warn("Field values insert warning:", fvErr.message);
-            }
-
-            successCount += (insertedStudents || []).length;
-
-          } catch (err) {
-            failCount += studentsBatch.length;
-            log.innerHTML += `<span style="color:#ef4444">Batch [${chunkStart + 1} - ${Math.min(chunkStart + chunkSize, importRows.length)}]: Failed to insert (${err.message})</span><br/>`;
-          }
+        if (!admissionVal) {
+          failCount++;
+          log.innerHTML += `<span style="color:#ef4444">Row ${i + 2}: Skipped (Blank Admission Number)</span><br/>`;
+          return;
         }
 
-        updateProgress(Math.min(chunkStart + chunkSize, importRows.length), importRows.length);
-        log.scrollTop = log.scrollHeight;
+        if (seenSpreadsheetAdmNos.has(admissionVal.toLowerCase())) {
+          log.innerHTML += `<span style="color:#eab308">Row ${i + 2}: Skipped (Spreadsheet Duplicate Admission No: ${admissionVal})</span><br/>`;
+          return;
+        }
+
+        const studentData = {};
+        selectElements.forEach(select => {
+          const key = select.dataset.fieldKey;
+          const valIdx = select.value;
+          if (valIdx !== '') {
+            studentData[key] = String(row[parseInt(valIdx)] === undefined || row[parseInt(valIdx)] === null ? '' : row[parseInt(valIdx)]).trim();
+          }
+        });
+
+        const insertPayload = {
+          school_id: targetSchoolId,
+          name: nameVal || "Unknown",
+          class: classVal || "",
+          admission_no: admissionVal || "",
+          photo_url: null,
+          student_data: studentData
+        };
+
+        if (studentData['parent_phone']) insertPayload.parent_phone = studentData['parent_phone'];
+        if (studentData['dob']) insertPayload.dob = studentData['dob'];
+
+        allStudentsPayloads.push(insertPayload);
+        chunkRowsMapping.push({ row, admissionVal });
+        seenSpreadsheetAdmNos.add(admissionVal.toLowerCase());
+      });
+
+      // Split payloads into chunks of 100
+      const chunks = [];
+      const chunkMappings = [];
+      const chunkSize = 100;
+      for (let i = 0; i < allStudentsPayloads.length; i += chunkSize) {
+        chunks.push(allStudentsPayloads.slice(i, i + chunkSize));
+        chunkMappings.push(chunkRowsMapping.slice(i, i + chunkSize));
+      }
+
+      const allInsertedStudents = [];
+      const totalToProcess = allStudentsPayloads.length;
+      let processedCount = 0;
+
+      // Execute insertions with concurrency of 3
+      const concurrency = 3;
+      for (let i = 0; i < chunks.length; i += concurrency) {
+        const batchPromises = [];
+        for (let j = 0; j < concurrency && (i + j) < chunks.length; j++) {
+          const chunk = chunks[i + j];
+          batchPromises.push((async () => {
+            try {
+              const { data: inserted, error: dbErr } = await supabase
+                .from('students')
+                .insert(chunk, { onConflict: 'school_id, admission_no', ignoreDuplicates: true })
+                .select('id, admission_no');
+
+              if (dbErr) throw dbErr;
+
+              if (inserted) {
+                allInsertedStudents.push(...inserted);
+                successCount += inserted.length;
+              }
+            } catch (err) {
+              failCount += chunk.length;
+              log.innerHTML += `<span style="color:#ef4444">Batch [${(i + j) * chunkSize + 1} - ${Math.min(((i + j) + 1) * chunkSize, allStudentsPayloads.length)}]: Failed to insert (${err.message})</span><br/>`;
+            } finally {
+              processedCount += chunk.length;
+              updateProgress(processedCount, totalToProcess);
+              log.scrollTop = log.scrollHeight;
+            }
+          })());
+        }
+        await Promise.all(batchPromises);
+      }
+
+      // Natively calculate all duplicates (both spreadsheet level and DB constraint level skips)
+      duplicateCount = importRows.length - successCount - failCount;
+
+      // Build & insert ALL student_field_values in single/chunked batches at the end!
+      if (allInsertedStudents.length > 0) {
+        const insertedLookup = new Map(allInsertedStudents.map(s => [String(s.admission_no || '').trim().toLowerCase(), s.id]));
+        const fieldValuesRows = [];
+
+        chunkRowsMapping.forEach(({ row, admissionVal }) => {
+          const studentId = insertedLookup.get(admissionVal.toLowerCase());
+          if (studentId) {
+            for (const key in mappings) {
+              const mapInfo = mappings[key];
+              if (mapInfo.fieldId) {
+                const val = String(row[mapInfo.index] === undefined || row[mapInfo.index] === null ? '' : row[mapInfo.index]).trim();
+                if (val) {
+                  fieldValuesRows.push({
+                    student_id: studentId,
+                    field_id: mapInfo.fieldId,
+                    value: val
+                  });
+                }
+              }
+            }
+          }
+        });
+
+        if (fieldValuesRows.length > 0) {
+          log.innerHTML += `Saving dynamic metadata fields...<br/>`;
+          log.scrollTop = log.scrollHeight;
+
+          const fvChunkSize = 500;
+          for (let i = 0; i < fieldValuesRows.length; i += fvChunkSize) {
+            const fvChunk = fieldValuesRows.slice(i, i + fvChunkSize);
+            const { error: fvErr } = await supabase.from('student_field_values').insert(fvChunk);
+            if (fvErr) console.warn("Field values insert warning:", fvErr.message);
+          }
+        }
       }
 
       log.innerHTML += `<br/><b>IMPORT SUMMARY:</b><br/>`;
