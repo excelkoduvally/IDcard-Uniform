@@ -166,7 +166,7 @@
               s.student_data = {};
           }
           
-          // Merge custom fields natively from the joined relation
+          // Merge custom fields from the joined relation (use field_name as canonical key)
           if (s.student_field_values && s.student_field_values.length > 0) {
               s.student_field_values.forEach(fv => {
                   if (fv.student_fields) {
@@ -179,18 +179,24 @@
               });
           }
 
-          // Merge fallbacks for legacy/direct table columns (e.g. parent_phone, dob)
-          if (s.parent_phone) {
-              s.student_data["Phone Number"] = s.parent_phone;
-              s.student_data["phone"] = s.parent_phone;
-              s.student_data["Parent Phone"] = s.parent_phone;
-              s.student_data["parent_phone"] = s.parent_phone;
-          }
-          if (s.dob) {
-              s.student_data["Date of Birth"] = s.dob;
-              s.student_data["dob"] = s.dob;
-              s.student_data["DOB"] = s.dob;
-              s.student_data["Date"] = s.dob;
+          // Merge legacy direct-column values under the EXACT globalField name to avoid duplicates
+          // Find the canonical field name for phone and dob from globalFields list
+          if (s.parent_phone || s.dob) {
+              const phoneFieldName = globalFields.find(f => {
+                  const fl = f.toLowerCase();
+                  return fl === 'phone' || fl === 'phone number' || fl === 'parent phone' || fl === 'parent_phone';
+              });
+              const dobFieldName = globalFields.find(f => {
+                  const fl = f.toLowerCase();
+                  return fl === 'dob' || fl === 'date of birth' || fl === 'date_of_birth' || fl === 'birth date';
+              });
+
+              if (s.parent_phone && phoneFieldName && !s.student_data[phoneFieldName]) {
+                  s.student_data[phoneFieldName] = s.parent_phone;
+              }
+              if (s.dob && dobFieldName && !s.student_data[dobFieldName]) {
+                  s.student_data[dobFieldName] = s.dob;
+              }
           }
           
           let stuClass = s.class || s.student_data.Class || s.student_data.class || null;
@@ -265,24 +271,12 @@
         return;
       }
 
-      // 1. Collect all custom headers across current filtered students
-      const customHeaders = new Set();
-      globalFields.forEach(f => {
-          const kLower = f.toLowerCase();
-          if (kLower !== 'name' && kLower !== 'class') customHeaders.add(f);
+      // 1. Build column headers ONLY from globalFields (single source of truth)
+      //    This prevents duplicate columns from student_data key variations.
+      const customHeadersArray = globalFields.filter(f => {
+          const fl = f.toLowerCase();
+          return fl !== 'name' && fl !== 'class';
       });
-      filteredStudents.forEach(s => {
-        if (s.student_data && typeof s.student_data === 'object') {
-            Object.keys(s.student_data).forEach(k => {
-                // Ignore standard keys to prevent duplicates in the view
-                const kLower = k.toLowerCase();
-                if (kLower !== 'name' && kLower !== 'class') {
-                    customHeaders.add(k);
-                }
-            });
-        }
-      });
-      const customHeadersArray = Array.from(customHeaders);
 
       // 2. Dynamically build the table header
       let theadHTML = `<tr>
@@ -396,16 +390,13 @@
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet("Students");
 
-        // Dynamically create headers
-        const headerSet = new Set(["Photo", "Name", "Class", "School", "Date_Added"]);
-        globalFields.forEach(f => headerSet.add(f));
-        filteredStudents.forEach(s => {
-          if (s.student_data && typeof s.student_data === 'object') {
-            Object.keys(s.student_data).forEach(k => headerSet.add(k));
-          }
-        });
-        
-        const headers = Array.from(headerSet);
+        // Build headers from globalFields ONLY (single source of truth — prevents duplicate columns)
+        const headers = ["Photo", "Name", "Class", "School", "Date_Added",
+          ...globalFields.filter(f => {
+            const fl = f.toLowerCase();
+            return fl !== 'name' && fl !== 'class';
+          })
+        ];
         
         worksheet.columns = headers.map(h => ({
             header: h, 
