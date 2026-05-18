@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="../assets/css/style-app.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     .school-filter-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
     .pill { padding: 0.4rem 1rem; border-radius: 100px; font-size: 0.8rem; font-weight: 600; border: 1.5px solid var(--border); color: var(--text-muted); cursor: pointer; transition: all 0.2s; background: transparent; }
@@ -74,6 +75,7 @@
             </div>
           </div>
           <div class="actions">
+            <button class="btn btn-success" id="btn-export-excel" onclick="downloadExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
             <button class="btn btn-info" id="btn-export-photos" onclick="downloadPhotos()"><i class="fas fa-file-archive"></i> Download Photos</button>
             <button class="btn btn-outline" onclick="loadStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
           </div>
@@ -275,6 +277,51 @@
         
       } catch(err) {
         alert("Error creating ZIP: " + err.message);
+      } finally {
+        btn.innerHTML = btnText;
+        btn.disabled = false;
+      }
+    };
+
+    window.downloadExcel = function() {
+      if(filteredStudents.length === 0) {
+        alert("No students to export.");
+        return;
+      }
+      
+      const btn = document.getElementById("btn-export-excel");
+      const btnText = btn.innerHTML;
+      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Exporting...`;
+      btn.disabled = true;
+
+      try {
+        const exportData = filteredStudents.map(s => {
+          const rowData = {};
+          
+          if (s.name) rowData.Name = s.name;
+          if (s.class) rowData.Class = s.class;
+          
+          if (s.student_data && typeof s.student_data === 'object') {
+            for (const key in s.student_data) {
+              rowData[key] = s.student_data[key];
+            }
+          }
+          
+          rowData.School = s.school_name || "Unknown";
+          rowData.Date_Added = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
+          
+          return rowData;
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+
+        const sch = document.getElementById("school-filter").value;
+        const typeStr = sch ? sch.split('@')[0].toUpperCase() : "All_Schools";
+        XLSX.writeFile(workbook, `Students_${typeStr}.xlsx`);
+      } catch (err) {
+        alert("Error exporting Excel: " + err.message);
       } finally {
         btn.innerHTML = btnText;
         btn.disabled = false;
