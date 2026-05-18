@@ -624,6 +624,19 @@
     window.deleteStudent = async function(id) {
       if (!confirm("Delete this student record? This cannot be undone.")) return;
       try {
+        const { data: student } = await supabase
+          .from('students')
+          .select('photo_url')
+          .eq('id', id)
+          .single();
+
+        if (student?.photo_url && student.photo_url.includes('student-photos')) {
+          const fileName = student.photo_url.split('/').pop();
+          await supabase.storage
+            .from('student-photos')
+            .remove([fileName]);
+        }
+
         const { error: e1 } = await supabase.from('student_field_values').delete().eq('student_id', id);
         if (e1) throw e1;
 

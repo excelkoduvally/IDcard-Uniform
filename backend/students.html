@@ -302,6 +302,7 @@
     let sortKey = 'created_at';
     let sortAsc = false;
     let searchTimeout = null;
+    let currentAbortController = null;
 
     // HTML Escaping helper to prevent XSS
     function escapeHtml(str = "") {
@@ -321,7 +322,9 @@
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
           const img = new Image();
+          const objectUrl = URL.createObjectURL(blob);
           img.onload = () => {
+            URL.revokeObjectURL(objectUrl); // cleanup
             const canvas = document.createElement('canvas');
             let w = img.width;
             let h = img.height;
@@ -342,8 +345,11 @@
             ctx.drawImage(img, 0, 0, w, h);
             canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.75);
           };
-          img.onerror = () => reject(new Error("Image loading failed"));
-          img.src = URL.createObjectURL(blob);
+          img.onerror = () => {
+            URL.revokeObjectURL(objectUrl); // cleanup
+            reject(new Error("Image loading failed"));
+          };
+          img.src = objectUrl;
         });
       } catch (e) {
         throw e;
@@ -427,6 +433,11 @@
       const tbody = document.getElementById("table-body");
       tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading records...</p></div></td></tr>`;
 
+      if (currentAbortController) {
+        currentAbortController.abort();
+      }
+      currentAbortController = new AbortController();
+
       try {
         const schId = document.getElementById("school-filter").value;
         const cls = document.getElementById("class-filter").value;
@@ -456,7 +467,8 @@
                 field_key
               )
             )
-          `, { count: 'exact' });
+          `, { count: 'exact' })
+          .abortSignal(currentAbortController.signal);
 
         if (schId) {
           query = query.eq('school_id', schId);
@@ -506,8 +518,10 @@
         });
 
         // Update record count & pagination indicators
+        const startRecord = totalCount > 0 ? (currentPage * pageSize) + 1 : 0;
+        const endRecord = Math.min((currentPage + 1) * pageSize, totalCount);
         document.getElementById("record-count").textContent = `${totalCount} Records`;
-        document.getElementById("page-indicator").textContent = `Page ${currentPage + 1} of ${Math.max(1, Math.ceil(totalCount / pageSize))}`;
+        document.getElementById("page-indicator").textContent = `Showing ${startRecord}–${endRecord} of ${totalCount} students`;
         
         // Toggle pagination buttons
         document.getElementById("prev-page-btn").disabled = currentPage === 0;
@@ -515,6 +529,9 @@
 
         renderTable();
       } catch (err) {
+        if (err.name === 'AbortError' || err.message === 'Fetch is aborted' || err.message === 'aborted') {
+          return; // Ignore aborted requests silently
+        }
         tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
       }
     };
@@ -630,6 +647,11 @@
         const file = e.target.files[0];
         if (!file) return;
 
+        if (file.size > 5 * 1024 * 1024) {
+          alert("Max file size is 5MB");
+          return;
+        }
+
         try {
           const fileName =
             `${studentId}-${Date.now()}.${file.name.split('.').pop()}`;
@@ -677,6 +699,19 @@
     window.deleteStudent = async function (id) {
       if (!confirm("Are you sure you want to delete this specific student record?")) return;
       try {
+        const { data: student } = await supabase
+          .from('students')
+          .select('photo_url')
+          .eq('id', id)
+          .single();
+
+        if (student?.photo_url && student.photo_url.includes('student-photos')) {
+          const fileName = student.photo_url.split('/').pop();
+          await supabase.storage
+            .from('student-photos')
+            .remove([fileName]);
+        }
+
         const { error } = await supabase.from('students').delete().eq('id', id);
         if (error) throw error;
         loadStudents();
@@ -723,12 +758,17 @@
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Bundling ZIP...`;
         const content = await zip.generateAsync({ type: "blob" });
         const link = document.createElement("a");
-        link.href = URL.createObjectURL(content);
+        const zipUrl = URL.createObjectURL(content);
+        link.href = zipUrl;
 
         const sch = document.getElementById("school-filter").value;
         const typeStr = sch ? "School" : "All";
         link.download = `Photos_${typeStr}.zip`;
         link.click();
+
+        setTimeout(() => {
+          URL.revokeObjectURL(zipUrl);
+        }, 1000);
       } catch (err) {
         alert("Error creating ZIP: " + err.message);
       } finally {
@@ -837,7 +877,9 @@
         a.href = url;
         a.download = `Students_Export_${typeStr}.xlsx`;
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
       } catch (err) {
         alert("Excel export failed: " + err.message);
       } finally {
@@ -963,10 +1005,17 @@
                 const result = [];
                 let current = '';
                 let inQuotes = false;
+
                 for (let i = 0; i < line.length; i++) {
                   const char = line[i];
-                  if (char === '"' || char === "'") {
-                    inQuotes = !inQuotes;
+
+                  if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                      current += '"';
+                      i++;
+                    } else {
+                      inQuotes = !inQuotes;
+                    }
                   } else if (char === ',' && !inQuotes) {
                     result.push(current.trim());
                     current = '';
@@ -974,6 +1023,7 @@
                     current += char;
                   }
                 }
+
                 result.push(current.trim());
                 return result;
               }
@@ -1171,85 +1221,101 @@
       const existingAdmNos = new Set((existingStudents || []).map(s => String(s.admission_no || '').trim().toLowerCase()));
       log.innerHTML += `Loaded ${existingAdmNos.size} existing admission numbers.<br/>`;
 
-      for (let i = 0; i < importRows.length; i++) {
-        const row = importRows[i];
-        const admissionVal = String(row[admissionMapIdx] === undefined || row[admissionMapIdx] === null ? '' : row[admissionMapIdx]).trim();
-        const nameVal = String(row[nameMapIdx] === undefined || row[nameMapIdx] === null ? '' : row[nameMapIdx]).trim();
-        const classVal = String(row[classMapIdx] === undefined || row[classMapIdx] === null ? '' : row[classMapIdx]).trim();
+      const chunkSize = 100;
+      for (let chunkStart = 0; chunkStart < importRows.length; chunkStart += chunkSize) {
+        const chunk = importRows.slice(chunkStart, chunkStart + chunkSize);
+        const studentsBatch = [];
+        const chunkRows = [];
 
-        if (!admissionVal) {
-          failCount++;
-          log.innerHTML += `<span style="color:#ef4444">Row ${i + 2}: Skipped (Blank Admission Number)</span><br/>`;
-          updateProgress(i + 1, importRows.length);
-          continue;
-        }
+        chunk.forEach((row, chunkOffset) => {
+          const globalIdx = chunkStart + chunkOffset;
+          const admissionVal = String(row[admissionMapIdx] === undefined || row[admissionMapIdx] === null ? '' : row[admissionMapIdx]).trim();
+          const nameVal = String(row[nameMapIdx] === undefined || row[nameMapIdx] === null ? '' : row[nameMapIdx]).trim();
+          const classVal = String(row[classMapIdx] === undefined || row[classMapIdx] === null ? '' : row[classMapIdx]).trim();
 
-        if (existingAdmNos.has(admissionVal.toLowerCase())) {
-          duplicateCount++;
-          log.innerHTML += `<span style="color:#eab308">Row ${i + 2}: Skipped (Duplicate Admission No: ${admissionVal})</span><br/>`;
-          updateProgress(i + 1, importRows.length);
-          continue;
-        }
-
-        const studentData = {};
-        selectElements.forEach(select => {
-          const key = select.dataset.fieldKey;
-          const valIdx = select.value;
-          if (valIdx !== '') {
-            studentData[key] = String(row[parseInt(valIdx)] === undefined || row[parseInt(valIdx)] === null ? '' : row[parseInt(valIdx)]).trim();
+          if (!admissionVal) {
+            failCount++;
+            log.innerHTML += `<span style="color:#ef4444">Row ${globalIdx + 2}: Skipped (Blank Admission Number)</span><br/>`;
+            return;
           }
+
+          if (existingAdmNos.has(admissionVal.toLowerCase())) {
+            duplicateCount++;
+            log.innerHTML += `<span style="color:#eab308">Row ${globalIdx + 2}: Skipped (Duplicate Admission No: ${admissionVal})</span><br/>`;
+            return;
+          }
+
+          const studentData = {};
+          selectElements.forEach(select => {
+            const key = select.dataset.fieldKey;
+            const valIdx = select.value;
+            if (valIdx !== '') {
+              studentData[key] = String(row[parseInt(valIdx)] === undefined || row[parseInt(valIdx)] === null ? '' : row[parseInt(valIdx)]).trim();
+            }
+          });
+
+          const insertPayload = {
+            school_id: targetSchoolId,
+            name: nameVal || "Unknown",
+            class: classVal || "",
+            admission_no: admissionVal || "",
+            photo_url: null,
+            student_data: studentData
+          };
+
+          if (studentData['parent_phone']) insertPayload.parent_phone = studentData['parent_phone'];
+          if (studentData['dob']) insertPayload.dob = studentData['dob'];
+
+          studentsBatch.push(insertPayload);
+          chunkRows.push({ row, admissionVal });
+          existingAdmNos.add(admissionVal.toLowerCase());
         });
 
-        const insertPayload = {
-          school_id: targetSchoolId,
-          name: nameVal || "Unknown",
-          class: classVal || "",
-          admission_no: admissionVal || "",
-          photo_url: null,
-          student_data: studentData
-        };
+        if (studentsBatch.length > 0) {
+          try {
+            const { data: insertedStudents, error: dbErr } = await supabase
+              .from('students')
+              .insert(studentsBatch)
+              .select();
 
-        if (studentData['parent_phone']) insertPayload.parent_phone = studentData['parent_phone'];
-        if (studentData['dob']) insertPayload.dob = studentData['dob'];
+            if (dbErr) throw dbErr;
 
-        try {
-          const { data: student, error: dbErr } = await supabase
-            .from('students')
-            .insert(insertPayload)
-            .select()
-            .single();
+            const insertedLookup = new Map((insertedStudents || []).map(s => [String(s.admission_no || '').trim().toLowerCase(), s.id]));
+            const fieldValuesRows = [];
 
-          if (dbErr) throw dbErr;
-
-          const fieldValuesRows = [];
-          for (const key in mappings) {
-            const mapInfo = mappings[key];
-            if (mapInfo.fieldId) {
-              const val = String(row[mapInfo.index] === undefined || row[mapInfo.index] === null ? '' : row[mapInfo.index]).trim();
-              if (val) {
-                fieldValuesRows.push({
-                  student_id: student.id,
-                  field_id: mapInfo.fieldId,
-                  value: val
-                });
+            chunkRows.forEach(({ row, admissionVal }) => {
+              const studentId = insertedLookup.get(admissionVal.toLowerCase());
+              if (studentId) {
+                for (const key in mappings) {
+                  const mapInfo = mappings[key];
+                  if (mapInfo.fieldId) {
+                    const val = String(row[mapInfo.index] === undefined || row[mapInfo.index] === null ? '' : row[mapInfo.index]).trim();
+                    if (val) {
+                      fieldValuesRows.push({
+                        student_id: studentId,
+                        field_id: mapInfo.fieldId,
+                        value: val
+                      });
+                    }
+                  }
+                }
               }
+            });
+
+            if (fieldValuesRows.length > 0) {
+              const { error: fvErr } = await supabase.from('student_field_values').insert(fieldValuesRows);
+              if (fvErr) console.warn("Field values insert warning:", fvErr.message);
             }
-          }
 
-          if (fieldValuesRows.length > 0) {
-            const { error: fvErr } = await supabase.from('student_field_values').insert(fieldValuesRows);
-            if (fvErr) console.warn("Field values insert warning:", fvErr.message);
-          }
+            successCount += (insertedStudents || []).length;
 
-          successCount++;
-          if (admissionVal) existingAdmNos.add(admissionVal.toLowerCase());
-          
-        } catch (err) {
-          failCount++;
-          log.innerHTML += `<span style="color:#ef4444">Row ${i + 2}: Failed to insert (${err.message})</span><br/>`;
+          } catch (err) {
+            failCount += studentsBatch.length;
+            log.innerHTML += `<span style="color:#ef4444">Batch [${chunkStart + 1} - ${Math.min(chunkStart + chunkSize, importRows.length)}]: Failed to insert (${err.message})</span><br/>`;
+          }
         }
 
-        updateProgress(i + 1, importRows.length);
+        updateProgress(Math.min(chunkStart + chunkSize, importRows.length), importRows.length);
         log.scrollTop = log.scrollHeight;
       }
 
