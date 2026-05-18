@@ -128,7 +128,7 @@
       try {
         const { data, error } = await supabase
           .from('students')
-          .select('*, schools(email, school_name)')
+          .select('*, schools(email, school_name), student_field_values(value, student_fields(field_name, field_key))')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -139,7 +139,22 @@
         allStudents.forEach(s => {
           s.school_email = s.schools?.email || 'Unknown';
           s.school_name = s.schools?.school_name || 'Unknown';
-          let stuClass = s.class || (s.student_data ? s.student_data.Class : null);
+          
+          // Reconstruct student_data from the joined table so it appears in Excel
+          if (!s.student_data) s.student_data = {};
+          if (s.student_field_values && s.student_field_values.length > 0) {
+            s.student_field_values.forEach(fv => {
+              if (fv.student_fields) {
+                 const fName = fv.student_fields.field_name || fv.student_fields.field_key;
+                 s.student_data[fName] = fv.value;
+                 if ((fv.student_fields.field_key === 'class' || fName.toLowerCase() === 'class') && !s.class) {
+                     s.class = fv.value;
+                 }
+              }
+            });
+          }
+          
+          let stuClass = s.class || s.student_data.Class || s.student_data.class || null;
           if (s.school_email) schoolsSet.add(s.school_email);
           if (stuClass) classesList.add(stuClass);
         });
