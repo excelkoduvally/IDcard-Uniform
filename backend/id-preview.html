@@ -439,34 +439,52 @@
             
             // Extract values safely with fallbacks
             const getVal = (key) => {
-                if (student[key]) return student[key];
-                if (student.student_data && student.student_data[key]) return student.student_data[key];
-                // Try case-insensitive matching for keys like 'phone' -> 'Phone Number'
+                if (!key) return "-";
+                const kLower = key.toLowerCase();
+                
+                // 1. Direct match on root columns
+                if (student[key] || student[kLower]) return student[key] || student[kLower];
+                
                 if (student.student_data) {
+                    // 2. Exact match in JSON (case-sensitive)
+                    if (student.student_data[key]) return student.student_data[key];
+                    if (student.student_data[kLower]) return student.student_data[kLower];
+                    
+                    // 3. Exact case-insensitive match
                     for (let k in student.student_data) {
-                        if (k.toLowerCase().includes(key) || key.includes(k.toLowerCase())) {
-                            return student.student_data[k];
+                        if (k.toLowerCase() === kLower) return student.student_data[k];
+                    }
+                    
+                    // 4. Fallback: Check if JSON key contains the requested key (dangerous for 'name' vs 'parent_name')
+                    // Only do this for tricky ones like 'phone'
+                    for (let k in student.student_data) {
+                        if (k.toLowerCase().includes(kLower) && kLower.length > 3) {
+                             // Avoid matching 'parent_name' when searching for 'name'
+                             if (kLower === 'name' && k.toLowerCase().includes('parent')) continue;
+                             return student.student_data[k];
                         }
                     }
                 }
-                return "-";
+                return ""; // return empty string instead of dash so it's clean if missing
             };
 
             const sName = getVal('name') || "Unknown";
-            const sClass = getVal('class');
-            const sAdm = getVal('admission_no');
-            const sPhone = getVal('phone') !== "-" ? getVal('phone') : getVal('parent_phone');
             const sPhoto = student.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sName)}&background=0ea5e9&color=fff`;
             const schName = school.school_name || "EXCEL ACADEMY";
 
-            // Replace placeholders
-            const html = template
-                .replaceAll("{{name}}", sName)
-                .replaceAll("{{class}}", sClass)
-                .replaceAll("{{admission_no}}", sAdm)
-                .replaceAll("{{phone}}", sPhone)
+            // Replace standard fixed placeholders first
+            let html = template
                 .replaceAll("{{photo}}", sPhoto)
                 .replaceAll("{{school_name}}", schName);
+
+            // Dynamically replace ALL custom {{field_key}} placeholders using regex
+            html = html.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, p1) => {
+                // Skip if we already handled it or if it's not a real placeholder
+                if (p1 === 'photo' || p1 === 'school_name') return match;
+                
+                const val = getVal(p1);
+                return val ? val : ""; // Replace with value or nothing
+            });
 
             wrapper.innerHTML = html;
             wrapper.classList.add('visible');
