@@ -204,6 +204,12 @@
             </select>
           </div>
           <div class="form-group">
+            <label>Filter by Division</label>
+            <select id="division-filter" class="form-control" onchange="applyFilters()">
+              <option value="">All Divisions</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label>Search Name</label>
             <div class="search-input">
               <i class="fas fa-search"></i>
@@ -430,7 +436,7 @@
         const [schoolsRes, fieldsRes, classesRes] = await Promise.all([
           supabase.from('schools').select('id, email, school_name'),
           supabase.from('student_fields').select('id, field_name, field_key'),
-          supabase.from('students').select('class')
+          supabase.from('students').select('class, student_data')
         ]);
 
         if (schoolsRes.data) {
@@ -481,14 +487,34 @@
 
         if (classesRes.data) {
           const classesSet = new Set();
+          const divisionsSet = new Set();
+          
           classesRes.data.forEach(s => {
             if (s.class) classesSet.add(s.class);
+            
+            let data = s.student_data;
+            if (typeof data === 'string') {
+              try { data = JSON.parse(data); } catch {}
+            }
+            if (data) {
+              const divVal = data.Division || data.division;
+              if (divVal) divisionsSet.add(String(divVal).trim());
+            }
           });
+          
           const clsObj = $("class-filter");
           clsObj.innerHTML = '<option value="">All Classes</option>';
           Array.from(classesSet).sort().forEach(c => {
             clsObj.appendChild(new Option(c, c));
           });
+          
+          const divObj = $("division-filter");
+          if (divObj) {
+            divObj.innerHTML = '<option value="">All Divisions</option>';
+            Array.from(divisionsSet).sort().forEach(d => {
+              divObj.appendChild(new Option(d, d));
+            });
+          }
         }
       } catch (e) {
         console.warn("Failed to initialize dropdown filters", e);
@@ -502,6 +528,7 @@
     const getFilters = () => ({
       school: $("school-filter").value,
       class: $("class-filter").value,
+      division: $("division-filter") ? $("division-filter").value : "",
       search: $("search-input").value.trim()
     });
 
@@ -510,6 +537,9 @@
 
       if (f.school) q = q.eq('school_id', f.school);
       if (f.class) q = q.eq('class', f.class);
+      if (f.division) {
+        q = q.or(`student_data->>Division.eq.${f.division},student_data->>division.eq.${f.division}`);
+      }
       if (f.search) {
         q = q.or(`name.ilike.%${f.search}%,admission_no.ilike.%${f.search}%`);
       }
