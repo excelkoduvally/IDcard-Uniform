@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="../assets/css/style-app.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <style>
     .school-filter-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
     .pill { padding: 0.4rem 1rem; border-radius: 100px; font-size: 0.8rem; font-weight: 600; border: 1.5px solid var(--border); color: var(--text-muted); cursor: pointer; transition: all 0.2s; background: transparent; }
@@ -128,11 +128,40 @@
       try {
         const { data, error } = await supabase
           .from('students')
-          .select('*, schools(email, school_name), student_field_values(value, student_fields(field_name, field_key))')
+          .select('*, schools(email, school_name)')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
         allStudents = data || [];
+
+        // Explicitly fetch all fields and values to prevent relation-join issues
+        let valuesByStudent = {};
+        if (allStudents.length > 0) {
+            try {
+                // Fetch fields
+                const { data: fieldsData } = await supabase.from('student_fields').select('id, field_name, field_key');
+                const fieldsMap = {};
+                if (fieldsData) fieldsData.forEach(f => fieldsMap[f.id] = f);
+                
+                // Fetch values
+                const { data: valuesData } = await supabase.from('student_field_values').select('student_id, field_id, value');
+                
+                if (valuesData) {
+                    valuesData.forEach(v => {
+                        if (!valuesByStudent[v.student_id]) valuesByStudent[v.student_id] = {};
+                        const f = fieldsMap[v.field_id];
+                        if (f) {
+                            valuesByStudent[v.student_id][f.field_name || f.field_key] = v.value;
+                            if (f.field_key === 'class' || (f.field_name || "").toLowerCase() === 'class') {
+                                valuesByStudent[v.student_id].class_value = v.value;
+                            }
+                        }
+                    });
+                }
+            } catch(e) {
+                console.warn("Notice: Custom fields could not be fully loaded", e);
+            }
+        }
 
         const schoolsSet = new Set();
         classesList = new Set();
@@ -140,18 +169,13 @@
           s.school_email = s.schools?.email || 'Unknown';
           s.school_name = s.schools?.school_name || 'Unknown';
           
-          // Reconstruct student_data from the joined table so it appears in Excel
           if (!s.student_data) s.student_data = {};
-          if (s.student_field_values && s.student_field_values.length > 0) {
-            s.student_field_values.forEach(fv => {
-              if (fv.student_fields) {
-                 const fName = fv.student_fields.field_name || fv.student_fields.field_key;
-                 s.student_data[fName] = fv.value;
-                 if ((fv.student_fields.field_key === 'class' || fName.toLowerCase() === 'class') && !s.class) {
-                     s.class = fv.value;
-                 }
-              }
-            });
+          
+          // Merge custom fields natively
+          const custom = valuesByStudent[s.id];
+          if (custom) {
+              Object.assign(s.student_data, custom);
+              if (custom.class_value && !s.class) s.class = custom.class_value;
           }
           
           let stuClass = s.class || s.student_data.Class || s.student_data.class || null;
@@ -298,7 +322,7 @@
       }
     };
 
-    window.downloadExcel = function() {
+    window.downloadExcel = async function() {
       if(filteredStudents.length === 0) {
         alert("No students to export.");
         return;
@@ -306,37 +330,94 @@
       
       const btn = document.getElementById("btn-export-excel");
       const btnText = btn.innerHTML;
-      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Exporting...`;
       btn.disabled = true;
 
       try {
-        const exportData = filteredStudents.map(s => {
-          const rowData = {};
-          
-          if (s.name) rowData.Name = s.name;
-          if (s.class) rowData.Class = s.class;
-          
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Students");
+
+        // Dynamically create headers
+        const headerSet = new Set(["Photo", "Name", "Class", "School", "Date_Added"]);
+        filteredStudents.forEach(s => {
           if (s.student_data && typeof s.student_data === 'object') {
-            for (const key in s.student_data) {
-              rowData[key] = s.student_data[key];
-            }
+            Object.keys(s.student_data).forEach(k => headerSet.add(k));
           }
-          
-          rowData.School = s.school_name || "Unknown";
-          rowData.Date_Added = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
-          
-          return rowData;
         });
+        
+        const headers = Array.from(headerSet);
+        
+        worksheet.columns = headers.map(h => ({
+            header: h, 
+            key: h, 
+            width: h === 'Photo' ? 12 : 20 
+        }));
 
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+        for (let i = 0; i < filteredStudents.length; i++) {
+            const s = filteredStudents[i];
+            
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing ${i+1}/${filteredStudents.length}...`;
+            
+            const rowData = {};
+            if (s.name) rowData.Name = s.name;
+            if (s.class) rowData.Class = s.class;
+            if (s.student_data && typeof s.student_data === 'object') {
+              for (const key in s.student_data) {
+                rowData[key] = s.student_data[key];
+              }
+            }
+            rowData.School = s.school_name || "Unknown";
+            rowData.Date_Added = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
+            
+            const row = worksheet.addRow(rowData);
+            row.height = 65; 
 
+            // Embed Image
+            if (s.photo_url) {
+                try {
+                    const response = await fetch(s.photo_url);
+                    const blob = await response.blob();
+                    
+                    const base64 = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                    });
+                    
+                    const imageId = workbook.addImage({
+                        base64: base64,
+                        extension: s.photo_url.toLowerCase().endsWith('png') ? 'png' : 'jpeg',
+                    });
+                    
+                    // Center the image inside the cell
+                    worksheet.addImage(imageId, {
+                        tl: { col: 0.1, row: row.number - 0.9 },
+                        ext: { width: 60, height: 60 },
+                        editAs: 'oneCell'
+                    });
+                } catch(e) {
+                    console.error("Failed to fetch photo for", s.name, e);
+                }
+            }
+        }
+
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving...`;
+        
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        
         const sch = document.getElementById("school-filter").value;
         const typeStr = sch ? sch.split('@')[0].toUpperCase() : "All_Schools";
-        XLSX.writeFile(workbook, `Students_${typeStr}.xlsx`);
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Students_With_Photos_${typeStr}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
       } catch (err) {
         alert("Error exporting Excel: " + err.message);
+        console.error(err);
       } finally {
         btn.innerHTML = btnText;
         btn.disabled = false;
