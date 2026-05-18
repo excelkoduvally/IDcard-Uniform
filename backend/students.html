@@ -129,45 +129,23 @@
       try {
         const { data, error } = await supabase
           .from('students')
-          .select('*, schools(email, school_name)')
+          .select('*, schools(email, school_name), student_field_values(value, student_fields(field_name, field_key))')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
         allStudents = data || [];
 
-        // Explicitly fetch all fields and values to prevent relation-join issues
-        let valuesByStudent = {};
-        if (allStudents.length > 0) {
-            try {
-                // Fetch fields
-                const { data: fieldsData } = await supabase.from('student_fields').select('id, field_name, field_key');
-                const fieldsMap = {};
-                globalFields = [];
-                if (fieldsData) {
-                    fieldsData.forEach(f => {
-                        fieldsMap[f.id] = f;
-                        globalFields.push(f.field_name || f.field_key);
-                    });
-                }
-                
-                // Fetch values
-                const { data: valuesData } = await supabase.from('student_field_values').select('student_id, field_id, value');
-                
-                if (valuesData) {
-                    valuesData.forEach(v => {
-                        if (!valuesByStudent[v.student_id]) valuesByStudent[v.student_id] = {};
-                        const f = fieldsMap[v.field_id];
-                        if (f) {
-                            valuesByStudent[v.student_id][f.field_name || f.field_key] = v.value;
-                            if (f.field_key === 'class' || (f.field_name || "").toLowerCase() === 'class') {
-                                valuesByStudent[v.student_id].class_value = v.value;
-                            }
-                        }
-                    });
-                }
-            } catch(e) {
-                console.warn("Notice: Custom fields could not be fully loaded", e);
+        try {
+            // Fetch fields to build global column headers
+            const { data: fieldsData } = await supabase.from('student_fields').select('id, field_name, field_key');
+            globalFields = [];
+            if (fieldsData) {
+                fieldsData.forEach(f => {
+                    globalFields.push(f.field_name || f.field_key);
+                });
             }
+        } catch(e) {
+            console.warn("Could not load global fields", e);
         }
 
         const schoolsSet = new Set();
@@ -188,11 +166,17 @@
               s.student_data = {};
           }
           
-          // Merge custom fields natively
-          const custom = valuesByStudent[s.id];
-          if (custom) {
-              Object.assign(s.student_data, custom);
-              if (custom.class_value && !s.class) s.class = custom.class_value;
+          // Merge custom fields natively from the joined relation
+          if (s.student_field_values && s.student_field_values.length > 0) {
+              s.student_field_values.forEach(fv => {
+                  if (fv.student_fields) {
+                      const fName = fv.student_fields.field_name || fv.student_fields.field_key;
+                      s.student_data[fName] = fv.value;
+                      if ((fv.student_fields.field_key === 'class' || fName.toLowerCase() === 'class') && !s.class) {
+                          s.class = fv.value;
+                      }
+                  }
+              });
           }
           
           let stuClass = s.class || s.student_data.Class || s.student_data.class || null;
