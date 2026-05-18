@@ -14,10 +14,10 @@ async function loadStorageStats() {
   if (!statSchools) return;
 
   try {
-    // ── Schools ──────────────────────────────────────────────
+    // ── Schools Count & Options ──────────────────────────────
     const { data: schools, error: schErr } = await supabase
       .from("schools")
-      .select("id, school_name");
+      .select("id, school_name, email");
     if (schErr) throw schErr;
 
     statSchools.textContent = schools ? schools.length : 0;
@@ -27,37 +27,50 @@ async function loadStorageStats() {
       schools.forEach(school => {
         const option = document.createElement("option");
         option.value = school.id;
-        option.textContent = school.school_name || "Unnamed School";
+        option.textContent = school.school_name || school.email || "Unnamed School";
         cleanupSelect.appendChild(option);
       });
     }
 
-    // ── Students ─────────────────────────────────────────────
-    const { data: students, error: stuErr } = await supabase
+    // ── High Performance Students Count (No rows downloaded) ──
+    const { count: totalStudents, error: stuErr } = await supabase
       .from("students")
-      .select("id, photo_url, created_at");
+      .select("id", { count: 'exact', head: true });
     if (stuErr) throw stuErr;
 
-    const total = students ? students.length : 0;
-    statStudents.textContent = total;
+    statStudents.textContent = totalStudents || 0;
 
-    // ── Photos ───────────────────────────────────────────────
-    const withPhoto = (students || []).filter(s => s.photo_url);
-    statPhotos.textContent = withPhoto.length;
+    // ── High Performance Photos Count ──────────────────────────
+    const { count: photoCount, error: photoErr } = await supabase
+      .from("students")
+      .select("id", { count: 'exact', head: true })
+      .not("photo_url", "is", null);
+    if (photoErr) throw photoErr;
 
-    // ── Students added today ──────────────────────────────────
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const todayCount = (students || []).filter(s => s.created_at && s.created_at.startsWith(todayStr)).length;
-    if (statToday) statToday.textContent = todayCount;
+    statPhotos.textContent = photoCount || 0;
 
-    // ── Storage estimates ─────────────────────────────────────
-    const sizeMB = JSON.stringify(students || []).length / 1024 / 1024;
+    // ── High Performance Today's Count ───────────────────────
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { count: todayCount, error: todayErr } = await supabase
+      .from("students")
+      .select("id", { count: 'exact', head: true })
+      .gte("created_at", today.toISOString());
+    if (todayErr) throw todayErr;
+
+    if (statToday) statToday.textContent = todayCount || 0;
+
+    // ── Database & Cloud Storage Estimates ────────────────────
+    // Dynamic database storage estimate (average 0.75 KB per student record + metadata)
+    const sizeMB = ((totalStudents || 0) * 0.75) / 1024;
     const displayMB = sizeMB < 0.01 ? "<0.01" : sizeMB.toFixed(2);
     const pctSupa = Math.min((sizeMB / 500) * 100, 100);
     if (supabaseFill) supabaseFill.style.width = Math.max(pctSupa, 0.5) + "%";
     if (supabaseText) supabaseText.innerText   = `${displayMB} MB / 500 MB`;
 
-    const cloudMB  = withPhoto.length * 0.5;
+    // Dynamic Cloudinary assets estimate (average 0.5 MB per compressed photo)
+    const cloudMB  = (photoCount || 0) * 0.5;
     const pctCloud = Math.min((cloudMB / 25000) * 100, 100);
     if (cloudinaryFill) cloudinaryFill.style.width = Math.max(pctCloud, 0.5) + "%";
     if (cloudinaryText) cloudinaryText.innerText   = `${cloudMB.toFixed(2)} MB / 25 GB`;
@@ -76,7 +89,7 @@ async function loadActivityLog() {
   try {
     const { data, error } = await supabase
       .from("activity_logs")
-      .select("*")
+      .select("id, action, description, created_at")
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -98,7 +111,6 @@ async function loadActivityLog() {
       </div>`;
     }).join('');
   } catch (e) {
-    // activity_logs table may not exist yet - silent fail
     const logEl = document.getElementById("activity-log");
     if (logEl) logEl.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem">Activity log table not set up yet.</p>';
   }
