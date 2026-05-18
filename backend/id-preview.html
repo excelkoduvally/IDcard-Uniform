@@ -112,10 +112,13 @@
       box-shadow: 0 15px 35px rgba(0,0,0,0.2);
       overflow: hidden;
       position: relative;
+      color: #333;
+    }
+    
+    .id-card.default-layout {
       display: flex;
       flex-direction: column;
       align-items: center;
-      color: #333;
     }
     
     .id-header {
@@ -312,7 +315,7 @@
     
     // Basic fallback template using standard placeholders
     const defaultTemplate = `
-      <div class="id-card">
+      <div class="id-card default-layout">
         <div class="id-header">{{school_name}}</div>
         <img src="{{photo}}" class="id-photo" onerror="this.src='https://ui-avatars.com/api/?name={{name}}&background=0ea5e9&color=fff'">
         <div class="id-body">

@@ -14,6 +14,7 @@
       content="Premium PVC school ID cards, custom lanyards, uniform belts and badges. Bulk orders for schools across Kerala and the GCC." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://excelkoduvally.github.io/IDcard-Uniform/excel_logo_final_ultimate.png" />
+    <link rel="canonical" href="https://excelkoduvally.github.io/" />
     
     <link rel="icon" type="image/png" sizes="192x192" href="assets/images/favicon.png" />
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg" />
@@ -104,14 +105,21 @@
             border-radius: 4px;
             box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
         }
+        
+        @media (prefers-reduced-motion: reduce) {
+            canvas, .progress-fill, h1, .logo-wrap, p {
+                animation: none !important;
+                transition: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+            }
+            .progress-fill { width: 100% !important; }
+        }
     </style>
 </head>
 <body>
+    <button id="skipBtn" style="position:absolute; top:20px; right:20px; z-index:10; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:8px 16px; border-radius:4px; cursor:pointer; font-family:inherit; transition:background 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">Skip Intro &rarr;</button>
     <div id="canvas-container"></div>
-    
-    <!-- Invisibly load main site in background to cache all assets -->
-    <iframe src="frontend/index.html" style="display:none; width:0; height:0; border:0;" tabindex="-1" title="preload"></iframe>
-    
     <div class="content">
         <div class="logo-wrap" id="logoWrap">
             <img src="assets/images/excel_logo_transparent.png" alt="Excel Logo" onerror="this.style.display='none'">
@@ -138,7 +146,7 @@
 
         // Create Particles (Starfield / Data Nodes effect)
         const geometry = new THREE.BufferGeometry();
-        const particlesCount = 2500;
+        const particlesCount = window.innerWidth < 768 ? 1200 : 2500;
         const posArray = new Float32Array(particlesCount * 3);
         const colorsArray = new Float32Array(particlesCount * 3);
         const scalesArray = new Float32Array(particlesCount);
@@ -193,7 +201,7 @@
                 void main() {
                     // Create circular particles instead of squares
                     float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-                    float alpha = 0.05 / distanceToCenter - 0.1;
+                    float alpha = smoothstep(0.5, 0.0, distanceToCenter);
                     gl_FragColor = vec4(vColor, alpha);
                 }
             `,
@@ -217,15 +225,21 @@
         const windowHalfX = window.innerWidth / 2;
         const windowHalfY = window.innerHeight / 2;
 
+        let mouseMoved = false;
         document.addEventListener('mousemove', (event) => {
-            mouseX = (event.clientX - windowHalfX);
-            mouseY = (event.clientY - windowHalfY);
+            if (!mouseMoved) {
+                mouseX = (event.clientX - windowHalfX);
+                mouseY = (event.clientY - windowHalfY);
+                mouseMoved = true;
+                setTimeout(() => mouseMoved = false, 16);
+            }
         });
 
         const clock = new THREE.Clock();
+        let reqId;
 
         function animate() {
-            requestAnimationFrame(animate);
+            reqId = requestAnimationFrame(animate);
             const elapsedTime = clock.getElapsedTime();
 
             // Update shader uniform
@@ -246,12 +260,16 @@
             particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x);
 
             // Fly-through effect on camera
-            camera.position.z -= 0.001;
+            camera.position.z = Math.max(camera.position.z - 0.001, 0.5);
 
             renderer.render(scene, camera);
         }
 
         animate();
+
+        window.addEventListener('beforeunload', () => {
+            cancelAnimationFrame(reqId);
+        });
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -260,8 +278,18 @@
         });
 
         // --- 3. GSAP UI Animations and Auto-Redirect ---
+        document.getElementById("skipBtn").onclick = () => {
+            window.location.href = "frontend/index.html";
+        };
+
         window.onload = () => {
-            const tl = gsap.timeline();
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    gsap.to("body", { opacity: 0, duration: 0.6, onComplete: () => {
+                        window.location.href = "frontend/index.html";
+                    }});
+                }
+            });
             
             // Stagger in the UI elements
             tl.to("#logoWrap", { opacity: 1, y: 0, duration: 1, ease: "power3.out" })
@@ -269,23 +297,9 @@
               .to("#subtitle", { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, "-=0.6")
               .to("#progressBar", { opacity: 1, duration: 0.5 }, "-=0.4")
               // Fill the progress bar
-              .to("#progressFill", { width: "100%", duration: 2.5, ease: "power1.inOut" });
-
-            // Fly camera into the particles at the end
-            gsap.to(camera.position, {
-                z: 0.5,
-                duration: 2.5,
-                delay: 1.5,
-                ease: "power2.in"
-            });
-
-            // Redirect after animations complete
-            setTimeout(() => {
-                // Final fade to black/dark blue
-                gsap.to("body", { opacity: 0, duration: 0.6, onComplete: () => {
-                    window.location.href = "frontend/index.html";
-                }});
-            }, 3500); // 3.5 seconds until redirect starts
+              .to("#progressFill", { width: "100%", duration: 2.5, ease: "power1.inOut" })
+              // Fly camera into the particles
+              .to(camera.position, { z: 0.5, duration: 2.5, ease: "power2.in" }, "-=2.5");
         };
     </script>
 </body>
