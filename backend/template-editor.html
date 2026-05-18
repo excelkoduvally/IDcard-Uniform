@@ -329,8 +329,9 @@
         const { data, error } = await supabase
           .from('student_fields')
           .select('*')
-          .or(`is_global.eq.true,school_id.eq.${schoolId}`)
-          .order('order_index', { ascending: true });
+          .or(`school_id.is.null,school_id.eq."${schoolId}"`)
+          .eq('active', true)
+          .order('display_order', { ascending: true });
           
         if (error) throw error;
         
@@ -348,7 +349,7 @@
              const key = field.field_key.toLowerCase();
              if (key === 'name' || key === 'class' || key === 'photo') return;
              
-             buttonsHTML += `<button class="field-btn" onclick="addField('${field.field_label}', 'text', '{{${field.field_key}}}')">${field.field_label}</button>`;
+             buttonsHTML += `<button class="field-btn" onclick="addField('${field.field_name}', 'text', '{{${field.field_key}}}')">${field.field_name}</button>`;
           });
         }
         
