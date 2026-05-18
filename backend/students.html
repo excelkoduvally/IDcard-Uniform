@@ -77,6 +77,31 @@
       padding-left: 2.2rem;
       width: 220px;
     }
+
+    /* Sticky table headers and sortable elements */
+    .table-wrap {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    #students-table th {
+      position: sticky;
+      top: 0;
+      background: #0f172a; /* Slate 900 matched to match template layout */
+      z-index: 10;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #students-table th:hover {
+      background: #1e293b;
+    }
+
+    #students-table th i {
+      margin-left: 5px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 
@@ -178,6 +203,12 @@
             </table>
           </div>
         </div>
+        
+        <div class="pagination-controls" style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem; align-items: center; padding-bottom: 2rem;">
+          <button class="btn btn-outline" id="prev-page-btn" onclick="changePage(-1)" disabled>Previous</button>
+          <span id="page-indicator" style="font-weight: 600; color: var(--text-muted);">Page 1</span>
+          <button class="btn btn-outline" id="next-page-btn" onclick="changePage(1)">Next</button>
+        </div>
 
       </div>
     </main>
@@ -191,199 +222,312 @@
 
     let allStudents = [];
     let filteredStudents = [];
-    let classesList = new Set();
     let globalFields = [];
+    
+    // Pagination & Sorting State
+    let currentPage = 0;
+    const pageSize = 50;
+    let totalCount = 0;
+    let sortKey = 'created_at';
+    let sortAsc = false;
+    let searchTimeout = null;
 
-    window.loadStudents = async function () {
-      const tbody = document.getElementById("table-body");
-      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading records...</p></div></td></tr>`;
+    // HTML Escaping helper to prevent XSS
+    function escapeHtml(str = "") {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
 
+    // Helper: compress/resize image to blob using canvas before embedding in Excel
+    async function compressImageToBlob(url, maxDim = 150) {
       try {
-        const { data, error } = await supabase
-          .from('students')
-          .select('*, schools(email, school_name), student_field_values(value, student_fields(field_name, field_key))')
-          .order('created_at', { ascending: false });
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let w = img.width;
+            let h = img.height;
+            if (w > h) {
+              if (w > maxDim) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              }
+            } else {
+              if (h > maxDim) {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.75);
+          };
+          img.onerror = () => reject(new Error("Image loading failed"));
+          img.src = URL.createObjectURL(blob);
+        });
+      } catch (e) {
+        throw e;
+      }
+    }
 
-        if (error) throw error;
-        allStudents = data || [];
+    // Load filter dropdowns once on start
+    async function initFilters() {
+      try {
+        const [schoolsRes, fieldsRes, classesRes] = await Promise.all([
+          supabase.from('schools').select('id, email, school_name'),
+          supabase.from('student_fields').select('id, field_name, field_key'),
+          // Fetch distinct classes from students
+          supabase.from('students').select('class')
+        ]);
 
-        try {
-          // Fetch fields to build global column headers
-          const { data: fieldsData } = await supabase.from('student_fields').select('id, field_name, field_key');
-          globalFields = [];
-          if (fieldsData) {
-            fieldsData.forEach(f => {
-              globalFields.push({ name: f.field_name || f.field_key, key: f.field_key });
-            });
-          }
-        } catch (e) {
-          console.warn("Could not load global fields", e);
+        if (schoolsRes.data) {
+          const selObj = document.getElementById("school-filter");
+          selObj.innerHTML = '<option value="">All Schools</option>';
+          
+          const pillsEl = document.getElementById("school-pills");
+          pillsEl.innerHTML = '';
+          
+          const btnAll = document.createElement("button");
+          btnAll.className = "pill active";
+          btnAll.textContent = "All";
+          btnAll.onclick = () => {
+            selObj.value = "";
+            applyFilters();
+          };
+          pillsEl.appendChild(btnAll);
+
+          schoolsRes.data.forEach(sch => {
+            const name = sch.school_name || sch.email;
+            selObj.appendChild(new Option(name, sch.id));
+            
+            const btn = document.createElement("button");
+            btn.className = "pill";
+            btn.textContent = (sch.school_name || sch.email.split('@')[0]).toUpperCase();
+            btn.onclick = () => {
+              selObj.value = sch.id;
+              applyFilters();
+            };
+            pillsEl.appendChild(btn);
+          });
         }
 
-        const schoolsSet = new Set();
-        classesList = new Set();
+        if (fieldsRes.data) {
+          globalFields = fieldsRes.data.map(f => ({
+            name: f.field_name || f.field_key,
+            key: f.field_key
+          }));
+        }
+
+        if (classesRes.data) {
+          const classesSet = new Set();
+          classesRes.data.forEach(s => {
+            if (s.class) classesSet.add(s.class);
+          });
+          const clsObj = document.getElementById("class-filter");
+          clsObj.innerHTML = '<option value="">All Classes</option>';
+          Array.from(classesSet).sort().forEach(c => {
+            clsObj.appendChild(new Option(c, c));
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to initialize dropdown filters", e);
+      }
+    }
+
+    // Main: fetch paginated students
+    window.loadStudents = async function () {
+      const tbody = document.getElementById("table-body");
+      tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading records...</p></div></td></tr>`;
+
+      try {
+        const schId = document.getElementById("school-filter").value;
+        const cls = document.getElementById("class-filter").value;
+        const search = document.getElementById("search-input").value.trim();
+
+        let query = supabase
+          .from('students')
+          .select(`
+            id,
+            name,
+            class,
+            created_at,
+            photo_url,
+            school_id,
+            student_data,
+            parent_phone,
+            dob,
+            schools (
+              id,
+              email,
+              school_name
+            ),
+            student_field_values (
+              value,
+              student_fields (
+                field_name,
+                field_key
+              )
+            )
+          `, { count: 'exact' });
+
+        if (schId) {
+          query = query.eq('school_id', schId);
+        }
+        if (cls) {
+          query = query.eq('class', cls);
+        }
+        if (search) {
+          query = query.ilike('name', `%${search}%`);
+        }
+
+        // Apply sorting
+        query = query.order(sortKey === 'created_at' ? 'created_at' : 'name', { ascending: sortAsc });
+
+        // Apply server pagination range
+        const start = currentPage * pageSize;
+        const end = start + pageSize - 1;
+        query = query.range(start, end);
+
+        const { data, count, error } = await query;
+        if (error) throw error;
+
+        allStudents = data || [];
+        totalCount = count || 0;
+        filteredStudents = [...allStudents]; // Already server filtered
+
+        // Parse student JSON values & relations cleanly
         allStudents.forEach(s => {
           s.school_email = s.schools?.email || 'Unknown';
           s.school_name = s.schools?.school_name || 'Unknown';
 
-          // Force parse student_data in case Supabase returns it as a string
           if (typeof s.student_data === 'string') {
-            try {
-              s.student_data = JSON.parse(s.student_data);
-            } catch (e) {
-              s.student_data = {};
-            }
+            try { s.student_data = JSON.parse(s.student_data); } catch (e) { s.student_data = {}; }
           }
-          if (!s.student_data || typeof s.student_data !== 'object') {
-            s.student_data = {};
-          }
+          if (!s.student_data) s.student_data = {};
 
-          // Merge custom fields from the joined relation (use field_key as canonical key)
-          if (s.student_field_values && s.student_field_values.length > 0) {
+          if (s.student_field_values) {
             s.student_field_values.forEach(fv => {
               if (fv.student_fields) {
-                const fKey = fv.student_fields.field_key;
-                const fName = fv.student_fields.field_name || fv.student_fields.field_key;
-                s.student_data[fKey] = fv.value;
-                if ((fKey === 'class' || fName.toLowerCase() === 'class') && !s.class) {
+                s.student_data[fv.student_fields.field_key] = fv.value;
+                if (fv.student_fields.field_key === 'class' && !s.class) {
                   s.class = fv.value;
                 }
               }
             });
           }
-
-          // Merge legacy direct-column values under the EXACT globalField key to avoid duplicates
-          if (s.parent_phone || s.dob) {
-            const phoneField = globalFields.find(f => {
-              const fl = f.name.toLowerCase();
-              return fl === 'phone' || fl === 'phone number' || fl === 'parent phone' || fl === 'parent_phone';
-            });
-            const dobField = globalFields.find(f => {
-              const fl = f.name.toLowerCase();
-              return fl === 'dob' || fl === 'date of birth' || fl === 'date_of_birth' || fl === 'birth date';
-            });
-
-            if (s.parent_phone && phoneField && !s.student_data[phoneField.key]) {
-              s.student_data[phoneField.key] = s.parent_phone;
-            }
-            if (s.dob && dobField && !s.student_data[dobField.key]) {
-              s.student_data[dobField.key] = s.dob;
-            }
-          }
-
-          let stuClass = s.class || s.student_data.Class || s.student_data.class || null;
-          if (s.school_email) schoolsSet.add(s.school_email);
-          if (stuClass) classesList.add(stuClass);
         });
 
-        // Populate Schools Dropdown
-        const selObj = document.getElementById("school-filter");
-        selObj.innerHTML = '<option value="">All Schools</option>';
-        schoolsSet.forEach(em => {
-          selObj.appendChild(new Option(em, em));
-        });
+        // Update record count & pagination indicators
+        document.getElementById("record-count").textContent = `${totalCount} Records`;
+        document.getElementById("page-indicator").textContent = `Page ${currentPage + 1} of ${Math.max(1, Math.ceil(totalCount / pageSize))}`;
+        
+        // Toggle pagination buttons
+        document.getElementById("prev-page-btn").disabled = currentPage === 0;
+        document.getElementById("next-page-btn").disabled = (currentPage + 1) * pageSize >= totalCount;
 
-        // Pills UI
-        const pillsEl = document.getElementById("school-pills");
-        pillsEl.innerHTML = '';
-        const btnAll = document.createElement("button");
-        btnAll.className = "pill active"; btnAll.textContent = "All";
-        btnAll.onclick = () => { selObj.value = ""; applyFilters(); };
-        pillsEl.appendChild(btnAll);
-
-        schoolsSet.forEach(em => {
-          const btn = document.createElement("button");
-          btn.className = "pill"; btn.textContent = em.split('@')[0].toUpperCase();
-          btn.onclick = () => { selObj.value = em; applyFilters(); };
-          pillsEl.appendChild(btn);
-        });
-
-        // Populate Classes Dropdown
-        const clsObj = document.getElementById("class-filter");
-        clsObj.innerHTML = '<option value="">All Classes</option>';
-        [...classesList].sort().forEach(c => clsObj.appendChild(new Option(c, c)));
-
-        applyFilters();
-
+        renderTable();
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state">Error: ${err.message}</div></td></tr>`;
       }
     };
 
+    // Debounced filter application
     window.applyFilters = function () {
-      const sch = document.getElementById("school-filter").value;
-      const cls = document.getElementById("class-filter").value;
-      const search = document.getElementById("search-input").value.toLowerCase();
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        currentPage = 0; // Reset pagination on filter change
+        
+        // Highlight active pills visually
+        const schId = document.getElementById("school-filter").value;
+        document.querySelectorAll(".pill").forEach(p => {
+          const pillText = p.textContent.toLowerCase();
+          if (!schId && pillText === "all") {
+            p.classList.add("active");
+          } else {
+            p.classList.remove("active");
+          }
+        });
 
-      filteredStudents = allStudents.filter(s => {
-        let n = s.name || (s.student_data ? s.student_data.Name : "");
-        let c = s.class || (s.student_data ? s.student_data.Class : "");
-        return (!sch || s.school_email === sch) &&
-          (!cls || c === cls) &&
-          (!search || n.toLowerCase().includes(search));
-      });
-
-      document.querySelectorAll(".pill").forEach(p => {
-        p.classList.toggle("active", (!sch && p.textContent === "All") || (sch && p.textContent === sch.split("@")[0].toUpperCase()));
-      });
-
-      document.getElementById("record-count").textContent = `${filteredStudents.length} Records`;
-
-
-
-      renderTable();
+        loadStudents();
+      }, 300);
     };
 
+    // Pagination trigger
+    window.changePage = function (direction) {
+      currentPage += direction;
+      loadStudents();
+    };
+
+    // Sort trigger
+    window.sortColumn = function (key) {
+      if (sortKey === key) {
+        sortAsc = !sortAsc;
+      } else {
+        sortKey = key;
+        sortAsc = true;
+      }
+      loadStudents();
+    };
+
+    // Render client UI table dynamically
     function renderTable() {
       const thead = document.querySelector("#students-table thead");
       const tbody = document.getElementById("table-body");
 
       if (filteredStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><p>No records match filters.</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="100%"><div class="empty-state"><p>No records found.</p></div></td></tr>`;
         return;
       }
 
-      // 1. Build column headers ONLY from globalFields (single source of truth)
-      const customHeadersArray = globalFields.filter(f => {
+      // Filter custom headers (excluding core fields to prevent duplication)
+      const customHeaders = globalFields.filter(f => {
         const fl = f.name.toLowerCase();
         return fl !== 'name' && fl !== 'class';
       });
 
-      // 2. Dynamically build the table header
+      // Build Headers with Clickable Sort Triggers
       let theadHTML = `<tr>
         <th>Photo</th>
-        <th>Name</th>
+        <th onclick="sortColumn('name')">Name <i class="fas ${sortKey === 'name' ? (sortAsc ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'}"></i></th>
         <th>Class</th>
         <th>School</th>
-        <th>Date</th>`;
-      customHeadersArray.forEach(h => {
-        theadHTML += `<th>${h.name}</th>`;
+        <th onclick="sortColumn('created_at')">Date <i class="fas ${sortKey === 'created_at' ? (sortAsc ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'}"></i></th>`;
+      
+      customHeaders.forEach(h => {
+        theadHTML += `<th>${escapeHtml(h.name)}</th>`;
       });
       theadHTML += `<th>Action</th></tr>`;
       thead.innerHTML = theadHTML;
 
-      // 3. Render rows with standard + dynamic columns
-      tbody.innerHTML = filteredStudents.map((s, index) => {
-        if (index === 0) {
-           console.log("DEBUG: First rendered student object:", JSON.parse(JSON.stringify(s)));
-           console.log("DEBUG: Global Fields loaded:", globalFields);
-        }
-        let n = s.name || (s.student_data ? s.student_data.Name : "No Name");
-        let c = s.class || (s.student_data ? s.student_data.Class : "N/A");
-        const photo = s.photo_url ? `<img src="${s.photo_url}" class="td-photo">` : `<div class="td-photo-placeholder"><i class="fas fa-user"></i></div>`;
-        const dt = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
+      tbody.innerHTML = filteredStudents.map(s => {
+        const name = s.name || s.student_data?.Name || "No Name";
+        const cls = s.class || s.student_data?.Class || "N/A";
+        const dateStr = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
+        const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0ea5e9&color=fff`;
+
+        const photoImg = s.photo_url 
+          ? `<img src="${escapeHtml(s.photo_url)}" class="td-photo" loading="lazy" onerror="this.onerror=null; this.src='${fallbackUrl}'">` 
+          : `<div class="td-photo-placeholder"><i class="fas fa-user"></i></div>`;
 
         let rowHTML = `<tr>
-          <td>${photo}</td>
-          <td><strong>${n}</strong></td>
-          <td><span class="badge badge-blue">${c}</span></td>
-          <td style="color:var(--text-muted)">${(s.school_email || "").split("@")[0].toUpperCase()}</td>
-          <td>${dt}</td>`;
+          <td>${photoImg}</td>
+          <td><strong>${escapeHtml(name)}</strong></td>
+          <td><span class="badge badge-blue">${escapeHtml(cls)}</span></td>
+          <td style="color:var(--text-muted)">${escapeHtml((s.school_name || s.school_email.split("@")[0]).toUpperCase())}</td>
+          <td>${escapeHtml(dateStr)}</td>`;
 
-        // Inject custom cell data
-        customHeadersArray.forEach(h => {
-          const val = (s.student_data && s.student_data[h.key]) ? s.student_data[h.key] : '-';
-          rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${val}</td>`;
+        customHeaders.forEach(h => {
+          const val = s.student_data && s.student_data[h.key] ? s.student_data[h.key] : '-';
+          rowHTML += `<td style="color:var(--text-muted); font-size:0.85rem">${escapeHtml(val)}</td>`;
         });
 
         rowHTML += `<td>
@@ -398,51 +542,58 @@
     window.deleteStudent = async function (id) {
       if (!confirm("Are you sure you want to delete this specific student record?")) return;
       try {
-        await supabase.from('students').delete().eq('id', id);
+        const { error } = await supabase.from('students').delete().eq('id', id);
+        if (error) throw error;
         loadStudents();
       } catch (err) {
         alert("Failed to delete: " + err.message);
       }
     };
 
+    // Batch downloading photos with parallel batches of 10
     window.downloadPhotos = async function () {
       if (filteredStudents.length === 0) {
-        alert("No students to download photos for.");
+        alert("No student photos available to download.");
         return;
       }
 
       const btn = document.getElementById("btn-export-photos");
       const btnText = btn.innerHTML;
-      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Zipping...`;
       btn.disabled = true;
 
       try {
         const zip = new window.JSZip();
+        const batchSize = 10;
+        const total = filteredStudents.length;
 
-        for (const student of filteredStudents) {
-          if (!student.photo_url) continue;
+        for (let i = 0; i < total; i += batchSize) {
+          const batch = filteredStudents.slice(i, i + batchSize);
+          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Downloading ${i + 1}/${total}...`;
 
-          let n = student.name || (student.student_data ? student.student_data.Name : "Student");
-          const filename = n.replace(/\s+/g, "_") + ".jpg";
-
-          try {
-            const response = await fetch(student.photo_url);
-            const blob = await response.blob();
-            zip.file(filename, blob);
-          } catch (err) {
-            console.error("Failed to fetch photo for", n, err);
-          }
+          await Promise.all(batch.map(async (student) => {
+            if (!student.photo_url) return;
+            const name = student.name || student.student_data?.Name || "Student";
+            const filename = name.replace(/\s+/g, "_") + ".jpg";
+            try {
+              const response = await fetch(student.photo_url);
+              if (!response.ok) throw new Error("Fetch failed");
+              const blob = await response.blob();
+              zip.file(filename, blob);
+            } catch (err) {
+              console.warn("Failed downloading photo for", name, err);
+            }
+          }));
         }
 
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Bundling ZIP...`;
         const content = await zip.generateAsync({ type: "blob" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(content);
 
         const sch = document.getElementById("school-filter").value;
-        const typeStr = sch ? sch.split('@')[0].toUpperCase() : "AllData";
+        const typeStr = sch ? "School" : "All";
         link.download = `Photos_${typeStr}.zip`;
         link.click();
-
       } catch (err) {
         alert("Error creating ZIP: " + err.message);
       } finally {
@@ -451,9 +602,10 @@
       }
     };
 
+    // Parallel compressed Excel exports preventing memory blowouts
     window.downloadExcel = async function () {
       if (filteredStudents.length === 0) {
-        alert("No students to export.");
+        alert("No student records available to export.");
         return;
       }
 
@@ -465,7 +617,6 @@
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet("Students");
 
-        // Build headers from globalFields ONLY (single source of truth — prevents duplicate columns)
         const customFields = globalFields.filter(f => {
           const fl = f.name.toLowerCase();
           return fl !== 'name' && fl !== 'class';
@@ -478,78 +629,95 @@
           width: h === 'Photo' ? 12 : 20
         }));
 
-        for (let i = 0; i < filteredStudents.length; i++) {
-          const s = filteredStudents[i];
+        const total = filteredStudents.length;
+        const batchSize = 10;
 
-          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing ${i + 1}/${filteredStudents.length}...`;
+        for (let i = 0; i < total; i += batchSize) {
+          const batch = filteredStudents.slice(i, i + batchSize);
+          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing ${i + 1}/${total}...`;
 
-          const rowData = {};
-          if (s.name) rowData.Name = s.name;
-          if (s.class) rowData.Class = s.class;
+          const rowPromises = batch.map(async (s, index) => {
+            const rowIndex = i + index + 1;
+            const name = s.name || s.student_data?.Name || "No Name";
+            const cls = s.class || s.student_data?.Class || "N/A";
+            const dateStr = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
 
-          customFields.forEach(f => {
-            rowData[f.name] = (s.student_data && s.student_data[f.key]) ? s.student_data[f.key] : '-';
+            const rowData = {
+              Name: name,
+              Class: cls,
+              School: s.school_name || "Unknown",
+              Date_Added: dateStr
+            };
+
+            customFields.forEach(f => {
+              rowData[f.name] = s.student_data && s.student_data[f.key] ? s.student_data[f.key] : '-';
+            });
+
+            return { s, rowData, rowIndex };
           });
-          rowData.School = s.school_name || "Unknown";
-          rowData.Date_Added = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A';
 
-          const row = worksheet.addRow(rowData);
-          row.height = 65;
+          const resolvedRows = await Promise.all(rowPromises);
 
-          // Embed Image
-          if (s.photo_url) {
-            try {
-              const response = await fetch(s.photo_url);
-              const blob = await response.blob();
+          for (const item of resolvedRows) {
+            const row = worksheet.addRow(item.rowData);
+            row.height = 65;
 
-              const base64 = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
-              });
+            if (item.s.photo_url) {
+              try {
+                // Compress & resize image to 150px before embedding to avoid memory crash
+                const compressedBlob = await compressImageToBlob(item.s.photo_url, 150);
+                
+                const base64 = await new Promise((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result);
+                  reader.readAsDataURL(compressedBlob);
+                });
 
-              const imageId = workbook.addImage({
-                base64: base64,
-                extension: s.photo_url.toLowerCase().endsWith('png') ? 'png' : 'jpeg',
-              });
+                const imageId = workbook.addImage({
+                  base64: base64,
+                  extension: 'jpeg',
+                });
 
-              // Center the image inside the cell
-              worksheet.addImage(imageId, {
-                tl: { col: 0.1, row: row.number - 0.9 },
-                ext: { width: 60, height: 60 },
-                editAs: 'oneCell'
-              });
-            } catch (e) {
-              console.error("Failed to fetch photo for", s.name, e);
+                worksheet.addImage(imageId, {
+                  tl: { col: 0.1, row: row.number - 0.9 },
+                  ext: { width: 60, height: 60 },
+                  editAs: 'oneCell'
+                });
+              } catch (e) {
+                console.warn("Failed embedding photo in Excel for", item.s.name, e);
+              }
             }
           }
         }
 
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving...`;
-
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving file...`;
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
-        const sch = document.getElementById("school-filter").value;
-        const typeStr = sch ? sch.split('@')[0].toUpperCase() : "All_Schools";
+        const schId = document.getElementById("school-filter").value;
+        const typeStr = schId ? "Filtered" : "All_Schools";
 
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Students_With_Photos_${typeStr}.xlsx`;
+        a.download = `Students_Export_${typeStr}.xlsx`;
         a.click();
         window.URL.revokeObjectURL(url);
-
       } catch (err) {
-        alert("Error exporting Excel: " + err.message);
-        console.error(err);
+        alert("Excel export failed: " + err.message);
       } finally {
         btn.innerHTML = btnText;
         btn.disabled = false;
       }
     };
 
-    loadStudents();
+    // Load dropdown values and paginate records initial trigger
+    async function start() {
+      await initFilters();
+      await loadStudents();
+    }
+
+    start();
   </script>
 </body>
 
