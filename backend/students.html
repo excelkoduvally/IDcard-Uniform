@@ -164,6 +164,8 @@
             </div>
           </div>
           <div class="actions">
+            <button class="btn btn-primary" id="btn-import-excel" onclick="openImportModal()"><i
+                class="fas fa-file-import"></i> Bulk Import</button>
             <button class="btn btn-success" id="btn-export-excel" onclick="downloadExcel()"><i
                 class="fas fa-file-excel"></i> Export Excel</button>
             <button class="btn btn-info" id="btn-export-photos" onclick="downloadPhotos()"><i
@@ -208,6 +210,75 @@
           <button class="btn btn-outline" id="prev-page-btn" onclick="changePage(-1)" disabled>Previous</button>
           <span id="page-indicator" style="font-weight: 600; color: var(--text-muted);">Page 1</span>
           <button class="btn btn-outline" id="next-page-btn" onclick="changePage(1)">Next</button>
+        </div>
+
+        <!-- ============================================================
+             BULK STUDENT IMPORT MODAL
+        ============================================================ -->
+        <div class="modal-backdrop" id="import-modal-backdrop">
+          <div class="modal" id="import-modal" style="max-width: 600px;">
+            <button class="modal-close" onclick="closeImportModal()"><i class="fas fa-times"></i></button>
+            <h3 class="modal-title"><i class="fas fa-file-import" style="color: var(--primary);"></i> Bulk Student Import</h3>
+            
+            <!-- Step 1: Upload and Select School -->
+            <div id="import-step-1">
+              <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Select Target School <span style="color:#ef4444">*</span></label>
+                <select id="import-school-select" class="form-control">
+                  <option value="">Choose School...</option>
+                </select>
+              </div>
+              
+              <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Choose Excel or CSV File <span style="color:#ef4444">*</span></label>
+                <div style="border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 2rem 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s;" 
+                     id="import-drag-zone" onclick="document.getElementById('import-file-input').click()">
+                  <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" style="display: none;" onchange="handleImportFileSelect(event)" />
+                  <i class="fas fa-file-excel" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
+                  <p style="margin: 0; font-weight: 600;" id="import-file-status">Click to browse or drag file here</p>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Supports .xlsx, .xls, .csv</span>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
+                <button class="btn btn-outline" onclick="closeImportModal()">Cancel</button>
+                <button class="btn btn-primary" id="btn-next-step" onclick="goToStep2()" disabled>Next <i class="fas fa-arrow-right"></i></button>
+              </div>
+            </div>
+
+            <!-- Step 2: Column Mapping -->
+            <div id="import-step-2" style="display: none;">
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Map the columns in your Excel sheet to the corresponding student fields.</p>
+              
+              <div id="column-mappings-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; padding-right: 0.5rem;">
+                <!-- Dynamically generated mapping elements -->
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
+                <button class="btn btn-outline" onclick="goToStep1()"><i class="fas fa-arrow-left"></i> Back</button>
+                <button class="btn btn-success" id="btn-run-import" onclick="executeImport()">Start Import <i class="fas fa-check"></i></button>
+              </div>
+            </div>
+
+            <!-- Step-3: Progress & Summary -->
+            <div id="import-step-3" style="display: none;">
+              <div style="text-align: center; margin-bottom: 1.5rem;">
+                <h4 id="import-progress-title" style="margin-bottom: 0.5rem;">Processing records...</h4>
+                <div class="storage-bar" style="height: 12px; border-radius: 100px; margin-bottom: 0.5rem;">
+                  <div id="import-progress-fill" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.1s;"></div>
+                </div>
+                <span id="import-progress-text" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">0 / 0 Completed</span>
+              </div>
+
+              <div id="import-log" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; font-family: monospace; font-size: 0.8rem; max-height: 200px; overflow-y: auto; color: var(--text-muted); margin-bottom: 1.5rem; text-align: left;">
+                <!-- Logs will be written dynamically -->
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                <button class="btn btn-primary" id="btn-finish-import" onclick="finishImport()" disabled>Done</button>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -293,6 +364,11 @@
           const selObj = document.getElementById("school-filter");
           selObj.innerHTML = '<option value="">All Schools</option>';
           
+          const importSelObj = document.getElementById("import-school-select");
+          if (importSelObj) {
+            importSelObj.innerHTML = '<option value="">Choose School...</option>';
+          }
+
           const pillsEl = document.getElementById("school-pills");
           pillsEl.innerHTML = '';
           
@@ -308,6 +384,9 @@
           schoolsRes.data.forEach(sch => {
             const name = sch.school_name || sch.email;
             selObj.appendChild(new Option(name, sch.id));
+            if (importSelObj) {
+              importSelObj.appendChild(new Option(name, sch.id));
+            }
             
             const btn = document.createElement("button");
             btn.className = "pill";
@@ -531,13 +610,69 @@
         });
 
         rowHTML += `<td>
-            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')"><i class="fas fa-trash"></i></button>
+            <button class="btn btn-primary btn-sm" onclick="openPhotoUpload('${s.id}')" title="Upload Photo" style="margin-right: 4px;">
+              <i class="fas fa-camera"></i>
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')" title="Delete Student">
+              <i class="fas fa-trash"></i>
+            </button>
           </td>
         </tr>`;
 
         return rowHTML;
       }).join('');
     }
+
+    window.openPhotoUpload = function(studentId) {
+      const input = document.getElementById("student-photo-input");
+
+      input.onchange = async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          const fileName =
+            `${studentId}-${Date.now()}.${file.name.split('.').pop()}`;
+
+          const { error: uploadError } =
+            await supabase.storage
+              .from("student-photos")
+              .upload(fileName, file, {
+                upsert: true
+              });
+
+          if (uploadError) throw uploadError;
+
+          const { data } =
+            supabase.storage
+              .from("student-photos")
+              .getPublicUrl(fileName);
+
+          const photoUrl = data.publicUrl;
+
+          const { error: dbError } =
+            await supabase
+              .from("students")
+              .update({
+                photo_url: photoUrl
+              })
+              .eq("id", studentId);
+
+          if (dbError) throw dbError;
+
+          alert("Photo uploaded successfully");
+
+          loadStudents();
+
+        } catch (err) {
+          alert(err.message);
+        }
+
+        input.value = "";
+      };
+
+      input.click();
+    };
 
     window.deleteStudent = async function (id) {
       if (!confirm("Are you sure you want to delete this specific student record?")) return;
@@ -711,6 +846,438 @@
       }
     };
 
+    // ============================================================
+    // BULK STUDENT IMPORT JAVASCRIPT LOGIC
+    // ============================================================
+    let importHeaders = [];
+    let importRows = [];
+    let targetSchoolId = "";
+    let currentSchoolCustomFields = [];
+
+    window.openImportModal = function() {
+      document.getElementById('import-modal-backdrop').classList.add('show');
+      goToStep1();
+    };
+
+    window.closeImportModal = function() {
+      document.getElementById('import-modal-backdrop').classList.remove('show');
+    };
+
+    window.goToStep1 = function() {
+      document.getElementById('import-step-1').style.display = 'block';
+      document.getElementById('import-step-2').style.display = 'none';
+      document.getElementById('import-step-3').style.display = 'none';
+      
+      // Reset files
+      document.getElementById('import-file-input').value = '';
+      document.getElementById('import-file-status').textContent = 'Click to browse or drag file here';
+      document.getElementById('import-drag-zone').style.borderColor = 'var(--border)';
+      document.getElementById('btn-next-step').setAttribute('disabled', 'true');
+    };
+
+    window.goToStep2 = function() {
+      const schoolId = document.getElementById('import-school-select').value;
+      if (!schoolId) {
+        alert("Please select a target school before proceeding.");
+        return;
+      }
+      document.getElementById('import-step-1').style.display = 'none';
+      document.getElementById('import-step-2').style.display = 'block';
+      document.getElementById('import-step-3').style.display = 'none';
+      generateColumnMappings();
+    };
+
+    window.goToStep3 = function() {
+      document.getElementById('import-step-1').style.display = 'none';
+      document.getElementById('import-step-2').style.display = 'none';
+      document.getElementById('import-step-3').style.display = 'block';
+    };
+
+    window.handleImportFileSelect = async function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const dragZone = document.getElementById('import-drag-zone');
+      const statusText = document.getElementById('import-file-status');
+      
+      statusText.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Parsing file...`;
+      dragZone.style.borderColor = 'var(--primary)';
+
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'xlsx' || ext === 'xls') {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            try {
+              const buffer = e.target.result;
+              const workbook = new ExcelJS.Workbook();
+              await workbook.xlsx.load(buffer);
+              
+              const worksheet = workbook.worksheets[0];
+              if (!worksheet) throw new Error("No worksheets found in this Excel file");
+              
+              importHeaders = [];
+              importRows = [];
+
+              const headerRow = worksheet.getRow(1);
+              headerRow.eachCell((cell) => {
+                importHeaders.push(String(cell.value || '').trim());
+              });
+
+              worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return; // skip header
+                const rowData = [];
+                for (let c = 1; c <= importHeaders.length; c++) {
+                  const val = row.getCell(c).value;
+                  // Handle rich text or objects
+                  if (val && typeof val === 'object') {
+                    if (val.richText) {
+                      rowData.push(val.richText.map(t => t.text).join(''));
+                    } else if (val.text) {
+                      rowData.push(val.text);
+                    } else {
+                      rowData.push(String(val));
+                    }
+                  } else {
+                    rowData.push(val === null || val === undefined ? '' : String(val));
+                  }
+                }
+                importRows.push(rowData);
+              });
+
+              onFileParsedSuccess(file.name);
+            } catch (err) {
+              onFileParsedError(err.message);
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        } else if (ext === 'csv') {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            try {
+              const text = e.target.result;
+              const lines = text.split(/\r?\n/);
+              if (lines.length === 0 || !lines[0]) throw new Error("CSV file is empty");
+              
+              function parseCSVRow(line) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                  const char = line[i];
+                  if (char === '"' || char === "'") {
+                    inQuotes = !inQuotes;
+                  } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                  } else {
+                    current += char;
+                  }
+                }
+                result.push(current.trim());
+                return result;
+              }
+
+              importHeaders = parseCSVRow(lines[0]);
+              importRows = [];
+
+              for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                importRows.push(parseCSVRow(line));
+              }
+
+              onFileParsedSuccess(file.name);
+            } catch (err) {
+              onFileParsedError(err.message);
+            }
+          };
+          reader.readAsText(file);
+        } else {
+          throw new Error("Invalid file extension. Please upload a .xlsx, .xls, or .csv file.");
+        }
+      } catch (err) {
+        onFileParsedError(err.message);
+      }
+    };
+
+    function onFileParsedSuccess(filename) {
+      const dragZone = document.getElementById('import-drag-zone');
+      const statusText = document.getElementById('import-file-status');
+      statusText.innerHTML = `<i class="fas fa-check-circle" style="color: #22c55e;"></i> <b>${filename}</b> loaded successfully! (${importRows.length} rows detected)`;
+      document.getElementById('btn-next-step').removeAttribute('disabled');
+      dragZone.style.borderColor = '#22c55e';
+    }
+
+    function onFileParsedError(errorMsg) {
+      const dragZone = document.getElementById('import-drag-zone');
+      const statusText = document.getElementById('import-file-status');
+      statusText.innerHTML = `<i class="fas fa-exclamation-circle" style="color: #ef4444;"></i> Error: ${errorMsg}`;
+      document.getElementById('btn-next-step').setAttribute('disabled', 'true');
+      dragZone.style.borderColor = '#ef4444';
+    }
+
+    async function generateColumnMappings() {
+      const schoolId = document.getElementById('import-school-select').value;
+      targetSchoolId = schoolId;
+      if (!schoolId) {
+        alert("Please select a target school before proceeding.");
+        goToStep1();
+        return;
+      }
+
+      try {
+        const { data: fields, error } = await supabase
+          .from("student_fields")
+          .select("*")
+          .or(`school_id.is.null,school_id.eq.${schoolId}`)
+          .eq("active", true);
+
+        if (error) throw error;
+        currentSchoolCustomFields = fields || [];
+      } catch (err) {
+        console.error("Failed to fetch school custom fields", err);
+        currentSchoolCustomFields = [];
+      }
+
+      const container = document.getElementById('column-mappings-container');
+      container.innerHTML = '';
+
+      const coreToMap = [
+        { key: 'admission_no', name: 'Admission / Student ID No', required: true },
+        { key: 'name', name: 'Student Name', required: true },
+        { key: 'class', name: 'Class / Division', required: true },
+        { key: 'parent_phone', name: 'Parent Phone', required: false },
+        { key: 'dob', name: 'Date of Birth (YYYY-MM-DD)', required: false }
+      ];
+
+      const allToMap = [...coreToMap];
+      currentSchoolCustomFields.forEach(f => {
+        const key = f.field_key;
+        if (!allToMap.some(item => item.key === key)) {
+          allToMap.push({
+            key: key,
+            name: f.field_name,
+            required: f.required || false,
+            isCustom: true,
+            fieldId: f.id
+          });
+        }
+      });
+
+      allToMap.forEach(field => {
+        const row = document.createElement('div');
+        row.style = 'display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.75rem;';
+        
+        const label = document.createElement('span');
+        label.style = 'font-size: 0.9rem; font-weight: 600; flex: 1; text-align: left;';
+        label.innerHTML = `${field.name} ${field.required ? '<span style="color:#ef4444">*</span>' : ''}`;
+        
+        const select = document.createElement('select');
+        select.className = 'form-control mapping-select';
+        select.style = 'flex: 1.2;';
+        select.dataset.fieldKey = field.key;
+        select.dataset.fieldName = field.name;
+        select.dataset.fieldRequired = field.required;
+        if (field.fieldId) select.dataset.fieldId = field.fieldId;
+        
+        select.innerHTML = '<option value="">-- Don\'t Import / Skip --</option>';
+        
+        let matchedIndex = -1;
+        importHeaders.forEach((header, idx) => {
+          select.appendChild(new Option(header, idx));
+          
+          const headerClean = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const keyClean = field.key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const nameClean = field.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          if (headerClean === keyClean || headerClean === nameClean || 
+              (field.key === 'admission_no' && (headerClean.includes('admission') || headerClean.includes('admn') || headerClean.includes('id') || headerClean.includes('roll'))) ||
+              (field.key === 'parent_phone' && (headerClean.includes('phone') || headerClean.includes('mobile') || headerClean.includes('parent') || headerClean.includes('contact')))) {
+            matchedIndex = idx;
+          }
+        });
+
+        if (matchedIndex !== -1) {
+          select.value = matchedIndex;
+        }
+
+        row.appendChild(label);
+        row.appendChild(select);
+        container.appendChild(row);
+      });
+    }
+
+    window.executeImport = async function() {
+      const selectElements = document.querySelectorAll('.mapping-select');
+      const mappings = {};
+      let admissionMapIdx = -1;
+      let nameMapIdx = -1;
+      let classMapIdx = -1;
+
+      let valid = true;
+      selectElements.forEach(select => {
+        const key = select.dataset.fieldKey;
+        const name = select.dataset.fieldName;
+        const required = select.dataset.fieldRequired === 'true';
+        const val = select.value;
+
+        if (required && val === '') {
+          alert(`Column mapping for required field "${name}" is missing!`);
+          valid = false;
+        }
+
+        if (val !== '') {
+          mappings[key] = {
+            index: parseInt(val),
+            fieldId: select.dataset.fieldId || null
+          };
+          if (key === 'admission_no') admissionMapIdx = parseInt(val);
+          if (key === 'name') nameMapIdx = parseInt(val);
+          if (key === 'class') classMapIdx = parseInt(val);
+        }
+      });
+
+      if (!valid) return;
+
+      goToStep3();
+
+      const log = document.getElementById('import-log');
+      const progressFill = document.getElementById('import-progress-fill');
+      const progressText = document.getElementById('import-progress-text');
+      const finishBtn = document.getElementById('btn-finish-import');
+      
+      log.innerHTML = `Starting import for target school...<br/>`;
+      progressFill.style.width = '0%';
+      progressText.textContent = `0 / ${importRows.length} Processed`;
+      finishBtn.setAttribute('disabled', 'true');
+
+      let successCount = 0;
+      let duplicateCount = 0;
+      let failCount = 0;
+
+      log.innerHTML += `Fetching existing student admission records...<br/>`;
+      const { data: existingStudents, error: fetchErr } = await supabase
+        .from('students')
+        .select('admission_no')
+        .eq('school_id', targetSchoolId);
+
+      if (fetchErr) {
+        log.innerHTML += `<span style="color:#ef4444">Error loading existing students: ${fetchErr.message}</span><br/>`;
+        finishBtn.removeAttribute('disabled');
+        return;
+      }
+
+      const existingAdmNos = new Set((existingStudents || []).map(s => String(s.admission_no || '').trim().toLowerCase()));
+      log.innerHTML += `Loaded ${existingAdmNos.size} existing admission numbers.<br/>`;
+
+      for (let i = 0; i < importRows.length; i++) {
+        const row = importRows[i];
+        const admissionVal = String(row[admissionMapIdx] === undefined || row[admissionMapIdx] === null ? '' : row[admissionMapIdx]).trim();
+        const nameVal = String(row[nameMapIdx] === undefined || row[nameMapIdx] === null ? '' : row[nameMapIdx]).trim();
+        const classVal = String(row[classMapIdx] === undefined || row[classMapIdx] === null ? '' : row[classMapIdx]).trim();
+
+        if (!admissionVal) {
+          failCount++;
+          log.innerHTML += `<span style="color:#ef4444">Row ${i + 2}: Skipped (Blank Admission Number)</span><br/>`;
+          updateProgress(i + 1, importRows.length);
+          continue;
+        }
+
+        if (existingAdmNos.has(admissionVal.toLowerCase())) {
+          duplicateCount++;
+          log.innerHTML += `<span style="color:#eab308">Row ${i + 2}: Skipped (Duplicate Admission No: ${admissionVal})</span><br/>`;
+          updateProgress(i + 1, importRows.length);
+          continue;
+        }
+
+        const studentData = {};
+        selectElements.forEach(select => {
+          const key = select.dataset.fieldKey;
+          const valIdx = select.value;
+          if (valIdx !== '') {
+            studentData[key] = String(row[parseInt(valIdx)] === undefined || row[parseInt(valIdx)] === null ? '' : row[parseInt(valIdx)]).trim();
+          }
+        });
+
+        const insertPayload = {
+          school_id: targetSchoolId,
+          name: nameVal || "Unknown",
+          class: classVal || "",
+          admission_no: admissionVal || "",
+          photo_url: null,
+          student_data: studentData
+        };
+
+        if (studentData['parent_phone']) insertPayload.parent_phone = studentData['parent_phone'];
+        if (studentData['dob']) insertPayload.dob = studentData['dob'];
+
+        try {
+          const { data: student, error: dbErr } = await supabase
+            .from('students')
+            .insert(insertPayload)
+            .select()
+            .single();
+
+          if (dbErr) throw dbErr;
+
+          const fieldValuesRows = [];
+          for (const key in mappings) {
+            const mapInfo = mappings[key];
+            if (mapInfo.fieldId) {
+              const val = String(row[mapInfo.index] === undefined || row[mapInfo.index] === null ? '' : row[mapInfo.index]).trim();
+              if (val) {
+                fieldValuesRows.push({
+                  student_id: student.id,
+                  field_id: mapInfo.fieldId,
+                  value: val
+                });
+              }
+            }
+          }
+
+          if (fieldValuesRows.length > 0) {
+            const { error: fvErr } = await supabase.from('student_field_values').insert(fieldValuesRows);
+            if (fvErr) console.warn("Field values insert warning:", fvErr.message);
+          }
+
+          successCount++;
+          if (admissionVal) existingAdmNos.add(admissionVal.toLowerCase());
+          
+        } catch (err) {
+          failCount++;
+          log.innerHTML += `<span style="color:#ef4444">Row ${i + 2}: Failed to insert (${err.message})</span><br/>`;
+        }
+
+        updateProgress(i + 1, importRows.length);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      log.innerHTML += `<br/><b>IMPORT SUMMARY:</b><br/>`;
+      log.innerHTML += `<span style="color:#22c55e">✔ Successfully Imported: ${successCount}</span><br/>`;
+      log.innerHTML += `<span style="color:#eab308">⚠ Skipped (Duplicates): ${duplicateCount}</span><br/>`;
+      if (failCount > 0) {
+        log.innerHTML += `<span style="color:#ef4444">✖ Failed: ${failCount}</span><br/>`;
+      }
+      
+      log.scrollTop = log.scrollHeight;
+      finishBtn.removeAttribute('disabled');
+      loadStudents();
+    };
+
+    function updateProgress(current, total) {
+      const fill = document.getElementById('import-progress-fill');
+      const text = document.getElementById('import-progress-text');
+      const pct = Math.round((current / total) * 100);
+      
+      fill.style.width = pct + '%';
+      text.textContent = `${current} / ${total} Processed`;
+    }
+
+    window.finishImport = function() {
+      closeImportModal();
+    };
+
     // Load dropdown values and paginate records initial trigger
     async function start() {
       await initFilters();
@@ -719,6 +1286,12 @@
 
     start();
   </script>
+  <input
+    type="file"
+    id="student-photo-input"
+    accept="image/*"
+    style="display:none"
+  />
 </body>
 
 </html>

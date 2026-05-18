@@ -86,12 +86,12 @@
             </div>
 
             <div class="form-group">
-              <div class="photo-upload-zone" id="drop-zone" onclick="document.getElementById('s-photo').click()">
+              <label class="photo-upload-zone" for="s-photo" id="drop-zone" style="display: block; cursor: pointer;">
                 <input type="file" id="s-photo" accept="image/*" style="display:none" />
                 <i class="fas fa-camera"></i>
                 <p>Click to select student photo</p>
                 <span style="font-size:0.75rem; color:var(--text-muted)">Max 5MB · JPG, PNG, WEBP</span>
-              </div>
+              </label>
               
               <div id="preview-container" style="display:none; text-align:center; margin-top:1.5rem; padding:1.5rem; border:1px dashed #22c55e; border-radius:8px; background:rgba(34,197,94,0.05)">
                 <p style="font-size:0.85rem; font-weight:700; color:#22c55e; margin-bottom:0.8rem;"><i class="fas fa-check-circle"></i> Photo Ready</p>
@@ -139,12 +139,57 @@
     let allRecords = [];
     let currentPage = 1;
     const PAGE_SIZE = 20;
+    let photoFile = null;
 
     guardPage('school').then(u => {
       currentUser = u;
       document.querySelector(".user-name-display").textContent = u.email?.split('@')[0] || u.email;
       loadTemplate();
       loadRecent();
+    });
+
+    // ── XSS SECURITY HELPER ──────────────────────────────────
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      const div = document.createElement('div');
+      div.textContent = String(str);
+      return div.innerHTML;
+    }
+
+    // ── DRAG & DROP PHOTO UPLOAD UX ──────────────────────────
+    const dropZone = document.getElementById('drop-zone');
+    if (dropZone) {
+      dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+
+        const photoInput = document.getElementById('s-photo');
+        if (photoInput) {
+          photoInput.files = e.dataTransfer.files;
+          photoInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+
+    // ── CONFIRM BEFORE LEAVING UNSAVED FORM ──────────────────
+    window.addEventListener('beforeunload', function(e) {
+      const hasData = [...document.querySelectorAll('.dynamic-input')].some(i => i.value.trim()) || photoFile;
+      if (hasData) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
     });
 
     // ── HELPERS ──────────────────────────────────────────────
@@ -283,7 +328,6 @@
     }
 
     // ── PHOTO ────────────────────────────────────────────────
-    let photoFile = null;
     document.getElementById("s-photo").addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -434,9 +478,9 @@
     window.loadRecent = async function() {
       if (!currentUser) return;
       try {
-        const { data, error, count } = await supabase
+        const { data, error } = await supabase
           .from('students')
-          .select('*', { count: 'exact' })
+          .select('id, name, class, admission_no, photo_url, created_at')
           .eq('school_id', currentUser.id)
           .order('created_at', { ascending: false });
           
@@ -486,13 +530,34 @@
       list.innerHTML = pageData.map(d => {
         const sName = d.name || 'Unknown';
         const date  = d.created_at ? new Date(d.created_at).toLocaleDateString('en-IN') : '';
-        return `<div class="record-item">
-          <img src="${d.photo_url || ''}" class="td-photo" onerror="this.style.display='none'">
-          <div class="record-info">
-            <strong>${sName}</strong>
-            <span>${d.class ? 'Class ' + d.class : ''} ${d.admission_no ? '· Adm: ' + d.admission_no : ''} ${date ? '· ' + date : ''}</span>
+        const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(sName)}&background=0ea5e9&color=fff`;
+        const hasPhoto = !!d.photo_url;
+
+        const safeName = escapeHtml(sName);
+        const safeClass = d.class ? escapeHtml(d.class) : '';
+        const safeAdm = d.admission_no ? escapeHtml(d.admission_no) : '';
+        
+        const photoMarkup = hasPhoto 
+          ? `<img src="${d.photo_url}" class="td-photo" onerror="this.onerror=null; this.src='${fallbackUrl}'">`
+          : `<div class="td-photo animate-pulse" style="display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); color:var(--text-muted); font-size:1.2rem; border-radius:6px; border:1px dashed var(--border);"><i class="fas fa-user-astronaut"></i></div>`;
+          
+        const photoBtn = hasPhoto
+          ? `<button class="btn btn-outline btn-sm" onclick="window.triggerPhotoUpload('${d.id}')" style="font-size:0.75rem; padding:0.35rem 0.65rem; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-exchange-alt"></i> Replace Photo</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="window.triggerPhotoUpload('${d.id}')" style="font-size:0.75rem; padding:0.35rem 0.65rem; background:var(--primary); display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-camera"></i> Upload Photo</button>`;
+
+        return `<div class="record-item" id="student-row-${d.id}" style="display:flex; align-items:center; justify-content:space-between; gap:1rem;">
+          <div style="display:flex; align-items:center; gap:1rem; flex:1; min-width:0;">
+            ${photoMarkup}
+            <div class="record-info">
+              <strong>${safeName}</strong>
+              <span>${safeClass ? 'Class ' + safeClass : ''} ${safeAdm ? '· Adm: ' + safeAdm : ''} ${date ? '· ' + date : ''}</span>
+            </div>
           </div>
-          <button class="btn btn-danger btn-sm" title="Delete" onclick="window.deleteStudent('${d.id}')"><i class="fas fa-trash"></i></button>
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0;">
+            ${photoBtn}
+            <div id="inline-loader-${d.id}" style="display:none; color:var(--primary); margin:0 0.25rem;"><i class="fas fa-spinner fa-spin"></i></div>
+            <button class="btn btn-danger btn-sm" title="Delete" onclick="window.deleteStudent('${d.id}')" style="padding:0.35rem 0.5rem;"><i class="fas fa-trash"></i></button>
+          </div>
         </div>`;
       }).join('');
 
@@ -500,12 +565,12 @@
       if (totalPages <= 1) { pagination.innerHTML = ''; return; }
       let btns = '';
       for (let i = 1; i <= totalPages; i++) {
-        btns += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i}, '${JSON.stringify(records).replace(/'/g,"\\'")}')">${i}</button>`;
+        btns += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
       }
       pagination.innerHTML = btns;
     }
 
-    window.goPage = function(page, _) {
+    window.goPage = function(page) {
       currentPage = page;
       const q = document.getElementById('search-query').value.trim().toLowerCase();
       const filtered = q
@@ -515,11 +580,56 @@
     };
 
     // ── DELETE ───────────────────────────────────────────────
+    // ── INLINE PHOTO UPLOAD HANDLERS ─────────────────────────
+    window.triggerPhotoUpload = function(studentId) {
+      const input = document.getElementById('student-photo-input');
+      input.dataset.studentId = studentId;
+      input.click();
+    };
+
+    window.handleStudentInlinePhotoUpload = async function(event) {
+      const file = event.target.files[0];
+      const studentId = event.target.dataset.studentId;
+      if (!file || !studentId) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Photo must be less than 5MB");
+        return;
+      }
+
+      const loader = document.getElementById(`inline-loader-${studentId}`);
+      if (loader) loader.style.display = 'inline-block';
+
+      try {
+        const photoURL = await uploadToCloudinary(file);
+        
+        // Update student record in Supabase
+        const { error } = await supabase
+          .from('students')
+          .update({ photo_url: photoURL })
+          .eq('id', studentId);
+
+        if (error) throw error;
+        
+        showStatus('success', 'Student photo updated successfully!');
+        loadRecent();
+      } catch (err) {
+        alert("Upload failed: " + err.message);
+      } finally {
+        if (loader) loader.style.display = 'none';
+        event.target.value = ''; // Reset input
+      }
+    };
+
     window.deleteStudent = async function(id) {
       if (!confirm("Delete this student record? This cannot be undone.")) return;
       try {
-        await supabase.from('student_field_values').delete().eq('student_id', id);
-        await supabase.from('students').delete().eq('id', id);
+        const { error: e1 } = await supabase.from('student_field_values').delete().eq('student_id', id);
+        if (e1) throw e1;
+
+        const { error: e2 } = await supabase.from('students').delete().eq('id', id);
+        if (e2) throw e2;
+
         showStatus('success', 'Student deleted.');
         loadRecent();
       } catch (err) {
@@ -527,5 +637,12 @@
       }
     };
   </script>
+  <input
+    type="file"
+    id="student-photo-input"
+    accept="image/*"
+    style="display:none"
+    onchange="handleStudentInlinePhotoUpload(event)"
+  />
 </body>
 </html>
