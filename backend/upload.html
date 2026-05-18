@@ -138,9 +138,23 @@
               <div class="section-label" style="margin:0"><i class="fas fa-history"></i> Recent Students (<span id="total-count">0</span>)</div>
               <button class="btn btn-outline btn-sm" onclick="loadRecent()"><i class="fas fa-sync-alt"></i></button>
             </div>
-            <div class="search-wrap">
+            <div class="filter-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.35rem; display: block;">Class</label>
+                <select id="class-filter" class="form-control" onchange="filterRecords()" style="width: 100%;">
+                  <option value="">All Classes</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.35rem; display: block;">Division</label>
+                <select id="division-filter" class="form-control" onchange="filterRecords()" style="width: 100%;">
+                  <option value="">All Divisions</option>
+                </select>
+              </div>
+            </div>
+            <div class="search-wrap" style="margin-bottom: 1rem;">
               <i class="fas fa-search"></i>
-              <input type="text" id="search-query" class="form-control" placeholder="Search by name or admission no..." oninput="searchStudents()">
+              <input type="text" id="search-query" class="form-control" placeholder="Search by name or admission no..." oninput="filterRecords()">
             </div>
             <div id="recent-list">
               <div class="empty-state"><p>No records yet.</p></div>
@@ -497,43 +511,95 @@
       }
     };
 
+    // ── DROPDOWN POPULATOR HELPER ────────────────────────────
+    function populateDropdown(id, defaultText, items) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const currentVal = el.value;
+      el.innerHTML = `<option value="">${defaultText}</option>`;
+      items.forEach(item => {
+        el.appendChild(new Option(item, item));
+      });
+      if (items.includes(currentVal)) {
+        el.value = currentVal;
+      }
+    }
+
     // ── LOAD RECENT (paginated) ──────────────────────────────
     window.loadRecent = async function() {
       if (!currentUser) return;
       try {
         const { data, error } = await supabase
           .from('students')
-          .select('id, name, class, admission_no, photo_url, created_at')
+          .select('id, name, class, admission_no, photo_url, created_at, student_data')
           .eq('school_id', currentUser.id)
           .order('created_at', { ascending: false });
           
         if (error) throw error;
         allRecords = data || [];
         document.getElementById('total-count').textContent = allRecords.length;
+        
+        // Normalize student_data
+        allRecords.forEach(s => {
+          if (typeof s.student_data === 'string') {
+            try { s.student_data = JSON.parse(s.student_data); } catch(e) { s.student_data = {}; }
+          }
+          s.student_data = s.student_data || {};
+        });
+
+        // Harvest unique classes and divisions
+        const classesSet = new Set();
+        const divisionsSet = new Set();
+        allRecords.forEach(s => {
+          if (s.class) classesSet.add(s.class);
+          const divVal = s.student_data?.Division || s.student_data?.division;
+          if (divVal) divisionsSet.add(String(divVal).trim());
+        });
+
+        // Populate dynamic dropdown filters
+        populateDropdown("class-filter", "All Classes", Array.from(classesSet).sort());
+        populateDropdown("division-filter", "All Divisions", Array.from(divisionsSet).sort());
+
         currentPage = 1;
-        renderList(allRecords);
+        filterRecords();
       } catch(e) {
         document.getElementById("recent-list").innerHTML =
           `<div class="empty-state"><p>Failed to load records.</p></div>`;
       }
     };
 
-    // ── SEARCH ───────────────────────────────────────────────
-    window.searchStudents = function() {
-      const q = document.getElementById('search-query').value.trim().toLowerCase();
-      if (!q) {
-        currentPage = 1;
-        renderList(allRecords);
-        return;
-      }
+    // ── DYNAMIC RECORD FILTER ────────────────────────────────
+    window.filterRecords = function() {
+      const classVal = document.getElementById('class-filter')?.value || "";
+      const divVal = document.getElementById('division-filter')?.value || "";
+      const searchQuery = document.getElementById('search-query')?.value.trim().toLowerCase() || "";
+
       const filtered = allRecords.filter(d => {
-        const name = (d.name || '').toLowerCase();
-        const adm  = (d.admission_no || '').toLowerCase();
-        return name.includes(q) || adm.includes(q);
+        // Class standard filter
+        if (classVal && d.class !== classVal) return false;
+        
+        // Division (section) filter
+        if (divVal) {
+          const sDiv = d.student_data?.Division || d.student_data?.division;
+          if (String(sDiv || '').trim() !== divVal) return false;
+        }
+        
+        // Search term filter
+        if (searchQuery) {
+          const name = (d.name || '').toLowerCase();
+          const adm  = (d.admission_no || '').toLowerCase();
+          if (!name.includes(searchQuery) && !adm.includes(searchQuery)) return false;
+        }
+
+        return true;
       });
+
       currentPage = 1;
       renderList(filtered);
     };
+
+    // Alias for backwards compatibility
+    window.searchStudents = window.filterRecords;
 
     // ── RENDER LIST (paginated) ──────────────────────────────
     function renderList(records) {
