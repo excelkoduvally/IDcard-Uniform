@@ -87,7 +87,10 @@
 
   <script type="module" src="../assets/js/auth.js"></script>
   <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    import { SUPABASE_URL, SUPABASE_ANON } from "../assets/js/supabase-config.js";
     import { guardPage, supabase } from "../assets/js/auth.js";
+    
     guardPage('admin');
 
     window.createSchool = async function () {
@@ -107,19 +110,44 @@
       document.getElementById("btn-text").style.display = "none";
 
       try {
+        // Create a temporary client that doesn't persist session to local storage
+        // This prevents overwriting the Admin's login session
+        const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+          }
+        });
+
         // Create user in Supabase auth
-        const { data: authData, error: authErr } = await supabase.auth.signUp({
+        const { data: authData, error: authErr } = await tempClient.auth.signUp({
           email: email,
           password: pass
         });
 
         if (authErr) throw authErr;
 
+        // Force a sign in to ensure the temporary client has the new user's session
+        // This is necessary to satisfy the Row Level Security (RLS) policies 
+        // which require the user to be logged in to insert their own records
+        const { error: signInErr } = await tempClient.auth.signInWithPassword({
+          email: email,
+          password: pass
+        });
+        
+        if (signInErr) {
+          // If signIn fails (e.g. email confirmation required), we might fail the RLS.
+          // In many setups, email confirmation is disabled for these apps, but let's throw if error occurs
+          throw signInErr;
+        }
+
         // Ensure we wait brief moment for any database triggers to finish before we upsert
         await new Promise(r => setTimeout(r, 500));
 
         // Insert/Update metadata into 'schools' table with the real schoolName
-        const { error: dbErr } = await supabase
+        // using the tempClient which is now authenticated as the newly created school
+        const { error: dbErr } = await tempClient
           .from('schools')
           .upsert({
             id: authData.user.id,
@@ -144,7 +172,7 @@
           { school_id: authData.user.id, field_name: "Phone Number", field_type: "text", required: true, order_no: 7 }
         ];
 
-        const { error: templateErr } = await supabase.from("templates").insert(defaultFields);
+        const { error: templateErr } = await tempClient.from("templates").insert(defaultFields);
 
         if (templateErr) throw templateErr;
 
