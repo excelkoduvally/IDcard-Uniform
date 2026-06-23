@@ -146,8 +146,8 @@
         await new Promise(r => setTimeout(r, 500));
 
         // Insert/Update metadata into 'schools' table with the real schoolName
-        // using the tempClient which is now authenticated as the newly created school
-        const { error: dbErr } = await tempClient
+        // using the admin's supabase client which has proper permissions
+        const { error: dbErr } = await supabase
           .from('schools')
           .update({
             school_name: schoolName,
@@ -172,7 +172,7 @@
           { school_id: authData.user.id, field_name: "Phone Number", field_type: "text", required: true, order_no: 7 }
         ];
 
-        const { error: templateErr } = await tempClient.from("templates").insert(defaultFields);
+        const { error: templateErr } = await supabase.from("templates").insert(defaultFields);
 
         if (templateErr) throw templateErr;
 
