@@ -149,14 +149,14 @@
         // using the tempClient which is now authenticated as the newly created school
         const { error: dbErr } = await tempClient
           .from('schools')
-          .upsert({
-            id: authData.user.id,
+          .update({
             school_name: schoolName,
             email: email,
             phone: phone,
             address: addr,
             status: 'active'
-          }, { onConflict: 'id' });
+          })
+          .eq('id', authData.user.id);
 
         if (dbErr) throw dbErr;
 
